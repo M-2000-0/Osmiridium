@@ -1,0 +1,67 @@
+# Cargo deny configuration for Osmiridium
+
+[licenses]
+# Allow only OSI-approved licenses and these specific ones
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "MIT",
+    "Zlib",
+    "Unicode-DFS-2016",
+    "CC0-1.0",
+    "MPL-2.0",
+    "ISC",
+    "Unlicense",
+    "0BSD",
+    "BUSL-1.1",
+]
+# Deny anything not explicitly allowed
+# deny = ["GPL-3.0-only", "AGPL-3.0-only"]  # uncomment if needed
+
+# Treat these as copyleft
+copyleft = ["GPL-2.0", "GPL-3.0", "LGPL-2.1", "LGPL-3.0", "AGPL-3.0"]
+
+# Allow list for crates with unclear/missing license
+allow-unclear = [
+    # Add crate names here if needed after review
+]
+
+confidence-threshold = 0.8
+
+[bans]
+# Deny specific crates or versions
+deny = [
+    # Example: { name = "crate-name", version = "<1.0" }
+]
+
+# Allow multiple versions of the same crate (for semver-incompatible deps)
+multiple-versions = "warn"
+
+# Allow wildcards in dependencies
+wildcards = "deny"
+
+# Warn about yanked crates
+yanked = "warn"
+
+[advisories]
+# Vulnerability database
+db = "rustsec"
+# db-path = "advisory-db"  # for offline
+
+# Ignore specific advisories (with justification)
+ignore = [
+    # { id = "RUSTSEC-XXXX-XXXX", note = "not affected because..." }
+]
+
+[source]
+# Registry sources to check
+allow-unknown-registries = false
+
+[advisories.sources]
+rustsec = { registry = "https://github.com/RustSec/advisory-db" }
+
+[spdx]
+# SPDX expression for license compliance
+expression = "Apache-2.0 OR MIT"

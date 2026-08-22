@@ -1,0 +1,113 @@
+{
+  "name": "Lead Intake (Osmiridium)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "n1-lead-webhook",
+      "name": "Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "osmiridium-lead"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-email",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n2-lead-if",
+      "name": "Has email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://osmiridium.example.com/sessions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "YOUR_OSMIRIDIUM_API_KEY" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.leadName || 'lead-' + Date.now(), num_parties: 2 }) }}",
+        "options": {}
+      },
+      "id": "n3-lead-create",
+      "name": "Create Session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [460, -120]
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@osmiridium.tech",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Thanks for contacting Osmiridium",
+        "emailFormat": "text",
+        "text": "Hi {{ $json.name || 'there' }},\\n\\nWe received your enquiry and will reply shortly.\\n\\nBest,\\nThe Osmiridium team",
+        "options": {}
+      },
+      "id": "n4-lead-reply",
+      "name": "Auto-reply to lead",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [460, 120],
+      "credentials": {
+        "smtp": { "id": "SMTP_CREDENTIAL_ID", "name": "SMTP account" }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "email",
+        "fromEmail": "you@osmiridium.tech",
+        "toEmail": "you@osmiridium.tech",
+        "subject": "New lead: {{ $json.name || 'unknown' }}",
+        "emailFormat": "text",
+        "text": "New lead received.\\nName: {{ $json.name }}\\nEmail: {{ $json.email }}\\nCompany: {{ $json.company }}",
+        "options": {}
+      },
+      "id": "n5-lead-notify",
+      "name": "Notify owner",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "credentials": {
+        "smtp": { "id": "SMTP_CREDENTIAL_ID", "name": "SMTP account" }
+      }
+    }
+  ],
+  "connections": {
+    "Lead Webhook": { "main": [[{ "node": "Has email?", "type": "main", "index": 0 }]] },
+    "Has email?": {
+      "main": [
+        [{ "node": "Create Session", "type": "main", "index": 0 }],
+        [{ "node": "Notify owner", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Session": { "main": [[{ "node": "Auto-reply to lead", "type": "main", "index": 0 }]] },
+    "Auto-reply to lead": { "main": [[{ "node": "Notify owner", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

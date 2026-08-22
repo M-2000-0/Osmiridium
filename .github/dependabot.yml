@@ -1,0 +1,179 @@
+version: 2
+updates:
+  # Cargo dependencies
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps(cargo)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(actions)"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(docker)"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # Cargo.toml workspace dependencies
+  - package-ecosystem: "cargo"
+    directory: "/crates/crypto"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(crypto)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "crypto"
+
+  - package-ecosystem: "cargo"
+    directory: "/crates/protocol"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "04:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(protocol)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "protocol"
+
+  - package-ecosystem: "cargo"
+    directory: "/crates/network"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(network)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "network"
+
+  - package-ecosystem: "cargo"
+    directory: "/crates/coordinator"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "04:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(coordinator)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "coordinator"
+
+  - package-ecosystem: "cargo"
+    directory: "/crates/api"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(api)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "api"
+
+  - package-ecosystem: "cargo"
+    directory: "/crates/cli"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "04:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(cli)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "cli"
+
+  - package-ecosystem: "cargo"
+    directory: "/crates/fhe"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "04:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(fhe)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "fhe"
+
+  - package-ecosystem: "cargo"
+    directory: "/crates/testing"
+    schedule:
+      interval: "weekly"
+      day: "friday"
+      time: "04:30"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps(testing)"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "cargo"
+      - "testing"

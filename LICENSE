@@ -1,0 +1,116 @@
+BUSL-1.1
+                        
+                         Copyright (c) 2026 Osmiridium
+                        
+                         This software is licensed under the Business Source License 1.1 (the "License").
+                         You may not use this file except in compliance with the License. You may obtain
+                         a copy of the License at
+                       
+                           https://opensource.org/licenses/BUSL-1.1
+                       
+                         As defined in the License, software distributed under the License is distributed on
+                         an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+                         or implied. See the License for the specific language governing permissions and
+                         limitations under the License.
+                       
+                         -------------------------- END OF TERMS AND CONDITIONS -------------------------
+                       
+                       
+                         Additional Terms
+                       
+                       
+                         1. Definitions.
+                       
+                            a. "The Work" means the software distribution and associated documentation
+                               made available under this License by the Licensor.
+                            b. "License Terms" means the terms and conditions for use, reproduction,
+                               distribution, and modification set forth below.
+                            c. "Update" means any addition to, or modification of, The Work.
+                            d. "Vendor" means the party that makes The Work available under this
+                               License.
+                            e. "Commercial Use" means: (i) the use of The Work for running a
+                               commercial rental, timesharing or other similar service; or (ii) the use
+                               of The Work for any business purpose, including without limitation the
+                               following: (A) use in the provisioning of software as a service, platform
+                               as a service, or infrastructure as a service; (B) use in any on-demand
+                               service where the service is made available to third parties; (C) use for
+                               commercial, revenue-generating activities; or (D) any other use of The
+                               Work that is determined to be a Commercial Use under this section.
+                            f. "Modification" means any derivative work or adaptation of The Work, or
+                               any modification to The Work.
+                       
+                       
+                         2. Grant of License.
+                       
+                            Subject to the terms and conditions of this License, the Licensor grants you
+                            a non-exclusive, worldwide, royalty-free license to use, reproduce, distribute,
+                            prepare derivative works of, display and perform The Work solely for internal
+                            business purposes.
+                            NOTWITHSTANDING THE ABOVE, USE FOR COMMERCIAL PURPOSES IS NOT AUTHORIZED AND
+                            IS EXPRESSLY PROHIBITED WITHOUT A COMMERCIAL LICENSE FROM THE LICENSOR.
+                            Commercial Use of The Work is strictly prohibited unless you have obtained a
+                            separate commercial license from the Licensor.
+                            The rights granted under this License will terminate automatically if you engage
+                            in Commercial Use of The Work.
+                            Upon termination, you must destroy all copies of The Work in your possession
+                            and cease all use of The Work.
+                       
+                       
+                         3. Restrictions.
+                       
+                            a. You may not use The Work for Commercial Use.
+                            b. You may not remove or modify any license notices, copyright
+                               notices, or disclaimers from The Work.
+                            c. You may not sublicense The Work or make The Work available on a
+                               network where it could be used by third parties for Commercial Use.
+                            d. If you distribute or publicly perform The Work, you must pass
+                               through to recipients a copy of this License.
+                            e. You may not use The Work in any way that would constitute a
+                               violation of applicable law or regulation.
+                       
+                       
+                         4. Termination.
+                       
+                            a. This License will terminate automatically if you fail to comply with
+                               any of its terms. Upon termination, you must destroy all copies of The
+                               Work in your possession and cease all use of The Work.
+                            b. Sections 1, 2, 3, 5, and 6 will survive any termination of this
+                               License.
+                       
+                       
+                         5. Disclaimer of Warranty.
+                       
+                            Except as required by applicable law or agreed to in writing, the Licensor
+                            provides The Work (and each Contributor provides its Contributions) on an
+                            "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+                            or implied, including, without limitation, any warranties or conditions of
+                            TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A PARTICULAR
+                            PURPOSE. You are solely responsible for determining the appropriateness of
+                            using or redistributing The Work and assume any risks associated with
+                            your exercise of permissions under this License.
+                       
+                       
+                         6. Limitation of Liability.
+                       
+                            Except as required by applicable law or agreed to in writing, and to the
+                            extent permitted by applicable law: (a) neither the Licensor nor any
+                            Contributor shall be liable for any direct, indirect, incidental, special,
+                            consequential, or other damages arising out of the use or inability to use
+                            The Work; and (b) in no event shall the Licensor or any Contributor be liable
+                            for any damages, including, without limitation, lost profits, loss of
+                            goodwill, work stoppage, computer failure or malfunction, or any and all
+                            other commercial damages or losses, even if advised of the possibility of
+                            such damages.
+                       
+                       
+                         7. General.
+                       
+                            a. Each term of this License which is prohibitive or restrictory in nature
+                               shall survive the termination of this License.
+                            b. This License shall be governed by and construed in accordance with the
+                               laws of the jurisdiction in which the Licensor is located, without
+                               regard to its conflict of law principles.
+                            c. In the event that any term of this License is found to be invalid or
+                               unenforceable under applicable law, the remaining terms shall continue
+                               in full force and effect.
+                            d. The Licensor reserves all rights not expressly granted under this License.

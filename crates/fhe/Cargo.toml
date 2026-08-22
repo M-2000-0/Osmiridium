@@ -1,0 +1,19 @@
+[package]
+name = "osmiridium-fhe"
+description = "Hybrid FHE components for non-interactive computation"
+edition = "2021"
+
+[features]
+default = []
+# Enables the prototype homomorphic multiplication path in ThresholdFhe.
+# Without it, mul returns UnsupportedOperation and callers must fall back to
+# the SPDZ hybrid mode for multiplications.
+fhe-mul = []
+
+[dependencies]
+osmiridium-crypto = { path = "../crypto" }
+ark-ff = "0.5"
+ark-std = "0.5"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
+rand = "0.8"

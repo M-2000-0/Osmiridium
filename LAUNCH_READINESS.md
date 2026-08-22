@@ -1,0 +1,5496 @@
+﻿# Osmiridium Launch Readiness Checklist
+
+Generated from a live codebase audit. Total items: 5192
+Status: - [ ] pending, - [x] done.
+
+Legend: each line is one tracked task. Categories map to repo areas.
+
+
+## 0. Release Blockers (must fix before launch)
+
+- [x] 1. Enable CI: add .github/workflows/ci.yml with build, test, clippy, fmt, and cargo audit jobs
+- [x] 2. Wire the gRPC server into the shipped binary (CLI verify command)
+- [ ] 3. Add authentication middleware to REST and gRPC APIs
+- [ ] 4. Add rate limiting to all API endpoints
+- [ ] 5. Enforce max_message_size in TcpTransport frame reader to prevent length-prefix abuse
+- [ ] 6. Encrypt the TCP transport (mTLS or Noise) so messages are not plaintext
+- [ ] 7. Add metrics endpoint (Prometheus) and wire metrics crate
+- [x] 8. Add structured/JSON logging option to tracing subscriber
+- [x] 9. Add panic hook that logs context before panic=abort kills the process
+- [x] 10. Write LICENSE file matching BUSL-1.1 declared in Cargo.toml
+- [x] 11. Publish Cargo.lock (do not gitignore for a binary workspace)
+- [x] 12. Complete FHE mul (currently UnsupportedOperation) or gate it behind a feature flag
+- [x] 13. Make REST GET /sessions/:id/results return real results instead of empty array
+- [x] 14. Make REST get_session return real name and num_participants
+- [ ] 15. Reconcile DEPLOYMENT.md mTLS claims with actual plaintext transport
+- [x] 16. Create docs/design/architecture.md
+- [x] 17. Create docs/design/threat-model.md
+- [x] 18. Create docs/api/openapi.yaml
+- [x] 19. Create SECURITY.md with vulnerability reporting policy
+- [x] 20. Create CONTRIBUTING.md
+- [x] 21. Create CHANGELOG.md
+- [ ] 22. Remove "to be implemented" placeholders in crates/cli/src/lib.rs and crates/testing/src/lib.rs
+- [ ] 23. Make cargo bench runnable (add criterion.workspace=true to osmiridium-testing)
+- [ ] 24. Make create-session persist sessions (currently in-memory only)
+- [ ] 25. Make execute connect to the coordinator API instead of simulating locally
+- [ ] 26. Implement keygen certificate/CA generation in the CLI
+- [ ] 27. Populate deploy/kubernetes manifests or clearly mark it unshipped
+- [ ] 28. Populate deploy/terraform or clearly mark it unshipped
+- [ ] 29. Validate endpoint strings before use in AddParticipant
+- [ ] 30. Set request-body size limits on REST endpoints
+- [ ] 31. Add authorization to add_participant (any anonymous caller can claim any role)
+- [ ] 32. Remove unused dependencies (tokio-tungstenite, quinn, x509-parser, tokio-cron-scheduler) or use them
+- [ ] 33. Replace Identity::verify self-HMAC with a real signature/trust scheme
+- [x] 34. Add FHE scheme evaluation unit tests and mul path
+- [ ] 35. Document that TransportType TcpNoise is a label; enforce consistency
+- [x] 36. Create scripts/ directory content (setup, keygen, certs) or remove
+- [ ] 37. Create tests/bench content or remove empty placeholder
+- [ ] 38. Verify docker-compose party services actually participate in a real MPC run
+- [x] 39. Create .github/dependabot.yml for dependency updates
+- [ ] 40. Add SECURITY.md and .github/SECURITY.md
+- [ ] 41. Create AGENTS.md for contributors
+- [x] 42. Add deny.toml (cargo-deny) for license/advisory policy
+- [x] 43. Create rustfmt.toml and enforce rustfmt in CI
+- [x] 44. Create clippy.toml and enforce clippy -D warnings in CI
+- [ ] 45. Define environment separation (dev/staging/prod) for compose and k8s
+- [ ] 46. Add TLS options to CLI verify command (certs at runtime)
+- [ ] 47. Add config file support (TOML) to complement env vars
+- [ ] 48. Expose remaining config fields via env (max_rounds, malicious, api.enabled, api.listen_addr)
+- [ ] 49. Make SessionConfig defaults actually consumed by runtime paths
+- [ ] 50. Replace "In a real implementation" prototype comments in FHE scheme with implemented paths or feature flags
+- [ ] 51. Make comparison gates (Equal/GreaterThan) work or return clear errors in both online phases
+
+## 1. Repository & Metadata
+
+- [x] 52. Remove Cargo.lock from .gitignore and commit it
+- [ ] 53. Add .github/PULL_REQUEST_TEMPLATE.md
+- [ ] 54. Add .github/ISSUE_TEMPLATE/bug_report.yml
+- [ ] 55. Add .github/ISSUE_TEMPLATE/feature_request.yml
+- [ ] 56. Add .github/ISSUE_TEMPLATE/config.yml
+- [ ] 57. Add .editorconfig with consistent indentation rules
+- [ ] 58. Add .gitattributes for line-ending handling
+- [ ] 59. Verify logo.png license and attribution
+- [ ] 60. Create CODEOWNERS file
+- [ ] 61. Add RELEASE_PROCESS.md describing versioning and tagging
+- [ ] 62. Add makefile or justfile with common targets (build, test, lint, bench, docker)
+- [ ] 63. Document minimum Rust version (1.97) in README
+- [ ] 64. Document license BUSL-1.1 and commercial terms in README
+- [ ] 65. Ensure repository URL in Cargo.toml is reachable
+- [ ] 66. Add funding.yml if applicable
+- [ ] 67. Verify osmiridium-crypto crate version is consistent with workspace 0.1.0-alpha
+- [ ] 68. Add crate-level README for osmiridium-crypto
+- [ ] 69. Add crate-level rustdoc header examples for osmiridium-crypto
+- [ ] 70. Verify osmiridium-crypto is listed in workspace members and builds standalone
+- [ ] 71. Check osmiridium-crypto for missing license header or attribution
+- [ ] 72. Ensure osmiridium-crypto has no unwrap() in non-test code
+- [ ] 73. Ensure osmiridium-crypto has no dbg!/println! debug output
+- [ ] 74. Check osmiridium-crypto for dead code warnings under -D warnings
+- [ ] 75. Verify osmiridium-protocol crate version is consistent with workspace 0.1.0-alpha
+- [ ] 76. Add crate-level README for osmiridium-protocol
+- [ ] 77. Add crate-level rustdoc header examples for osmiridium-protocol
+- [ ] 78. Verify osmiridium-protocol is listed in workspace members and builds standalone
+- [ ] 79. Check osmiridium-protocol for missing license header or attribution
+- [ ] 80. Ensure osmiridium-protocol has no unwrap() in non-test code
+- [ ] 81. Ensure osmiridium-protocol has no dbg!/println! debug output
+- [ ] 82. Check osmiridium-protocol for dead code warnings under -D warnings
+- [ ] 83. Verify osmiridium-network crate version is consistent with workspace 0.1.0-alpha
+- [ ] 84. Add crate-level README for osmiridium-network
+- [ ] 85. Add crate-level rustdoc header examples for osmiridium-network
+- [ ] 86. Verify osmiridium-network is listed in workspace members and builds standalone
+- [ ] 87. Check osmiridium-network for missing license header or attribution
+- [ ] 88. Ensure osmiridium-network has no unwrap() in non-test code
+- [ ] 89. Ensure osmiridium-network has no dbg!/println! debug output
+- [ ] 90. Check osmiridium-network for dead code warnings under -D warnings
+- [ ] 91. Verify osmiridium-coordinator crate version is consistent with workspace 0.1.0-alpha
+- [ ] 92. Add crate-level README for osmiridium-coordinator
+- [ ] 93. Add crate-level rustdoc header examples for osmiridium-coordinator
+- [ ] 94. Verify osmiridium-coordinator is listed in workspace members and builds standalone
+- [ ] 95. Check osmiridium-coordinator for missing license header or attribution
+- [ ] 96. Ensure osmiridium-coordinator has no unwrap() in non-test code
+- [ ] 97. Ensure osmiridium-coordinator has no dbg!/println! debug output
+- [ ] 98. Check osmiridium-coordinator for dead code warnings under -D warnings
+- [ ] 99. Verify osmiridium-api crate version is consistent with workspace 0.1.0-alpha
+- [ ] 100. Add crate-level README for osmiridium-api
+- [ ] 101. Add crate-level rustdoc header examples for osmiridium-api
+- [ ] 102. Verify osmiridium-api is listed in workspace members and builds standalone
+- [ ] 103. Check osmiridium-api for missing license header or attribution
+- [ ] 104. Ensure osmiridium-api has no unwrap() in non-test code
+- [ ] 105. Ensure osmiridium-api has no dbg!/println! debug output
+- [ ] 106. Check osmiridium-api for dead code warnings under -D warnings
+- [ ] 107. Verify osmiridium-cli crate version is consistent with workspace 0.1.0-alpha
+- [ ] 108. Add crate-level README for osmiridium-cli
+- [ ] 109. Add crate-level rustdoc header examples for osmiridium-cli
+- [ ] 110. Verify osmiridium-cli is listed in workspace members and builds standalone
+- [ ] 111. Check osmiridium-cli for missing license header or attribution
+- [ ] 112. Ensure osmiridium-cli has no unwrap() in non-test code
+- [ ] 113. Ensure osmiridium-cli has no dbg!/println! debug output
+- [ ] 114. Check osmiridium-cli for dead code warnings under -D warnings
+- [ ] 115. Verify osmiridium-fhe crate version is consistent with workspace 0.1.0-alpha
+- [ ] 116. Add crate-level README for osmiridium-fhe
+- [ ] 117. Add crate-level rustdoc header examples for osmiridium-fhe
+- [ ] 118. Verify osmiridium-fhe is listed in workspace members and builds standalone
+- [ ] 119. Check osmiridium-fhe for missing license header or attribution
+- [ ] 120. Ensure osmiridium-fhe has no unwrap() in non-test code
+- [ ] 121. Ensure osmiridium-fhe has no dbg!/println! debug output
+- [ ] 122. Check osmiridium-fhe for dead code warnings under -D warnings
+- [ ] 123. Verify osmiridium-testing crate version is consistent with workspace 0.1.0-alpha
+- [ ] 124. Add crate-level README for osmiridium-testing
+- [ ] 125. Add crate-level rustdoc header examples for osmiridium-testing
+- [ ] 126. Verify osmiridium-testing is listed in workspace members and builds standalone
+- [ ] 127. Check osmiridium-testing for missing license header or attribution
+- [ ] 128. Ensure osmiridium-testing has no unwrap() in non-test code
+- [ ] 129. Ensure osmiridium-testing has no dbg!/println! debug output
+- [ ] 130. Check osmiridium-testing for dead code warnings under -D warnings
+
+## 2. Documentation
+
+- [ ] 131. Create docs for: README (initial draft)
+- [ ] 132. Review docs for: README (technical accuracy)
+- [ ] 133. Cross-link docs for: README from README and DEPLOYMENT
+- [ ] 134. Spell-check and proofread docs for: README
+- [ ] 135. Add examples to docs for: README
+- [ ] 136. Version-stamp docs for: README against release
+- [ ] 137. Create docs for: DEPLOYMENT (initial draft)
+- [ ] 138. Review docs for: DEPLOYMENT (technical accuracy)
+- [ ] 139. Cross-link docs for: DEPLOYMENT from README and DEPLOYMENT
+- [ ] 140. Spell-check and proofread docs for: DEPLOYMENT
+- [ ] 141. Add examples to docs for: DEPLOYMENT
+- [ ] 142. Version-stamp docs for: DEPLOYMENT against release
+- [ ] 143. Create docs for: architecture (initial draft)
+- [ ] 144. Review docs for: architecture (technical accuracy)
+- [ ] 145. Cross-link docs for: architecture from README and DEPLOYMENT
+- [ ] 146. Spell-check and proofread docs for: architecture
+- [ ] 147. Add examples to docs for: architecture
+- [ ] 148. Version-stamp docs for: architecture against release
+- [ ] 149. Create docs for: threat-model (initial draft)
+- [ ] 150. Review docs for: threat-model (technical accuracy)
+- [ ] 151. Cross-link docs for: threat-model from README and DEPLOYMENT
+- [ ] 152. Spell-check and proofread docs for: threat-model
+- [ ] 153. Add examples to docs for: threat-model
+- [ ] 154. Version-stamp docs for: threat-model against release
+- [ ] 155. Create docs for: security-policy (initial draft)
+- [ ] 156. Review docs for: security-policy (technical accuracy)
+- [ ] 157. Cross-link docs for: security-policy from README and DEPLOYMENT
+- [ ] 158. Spell-check and proofread docs for: security-policy
+- [ ] 159. Add examples to docs for: security-policy
+- [ ] 160. Version-stamp docs for: security-policy against release
+- [ ] 161. Create docs for: api-reference (initial draft)
+- [ ] 162. Review docs for: api-reference (technical accuracy)
+- [ ] 163. Cross-link docs for: api-reference from README and DEPLOYMENT
+- [ ] 164. Spell-check and proofread docs for: api-reference
+- [ ] 165. Add examples to docs for: api-reference
+- [ ] 166. Version-stamp docs for: api-reference against release
+- [ ] 167. Create docs for: openapi (initial draft)
+- [ ] 168. Review docs for: openapi (technical accuracy)
+- [ ] 169. Cross-link docs for: openapi from README and DEPLOYMENT
+- [ ] 170. Spell-check and proofread docs for: openapi
+- [ ] 171. Add examples to docs for: openapi
+- [ ] 172. Version-stamp docs for: openapi against release
+- [ ] 173. Create docs for: grpc-reference (initial draft)
+- [ ] 174. Review docs for: grpc-reference (technical accuracy)
+- [ ] 175. Cross-link docs for: grpc-reference from README and DEPLOYMENT
+- [ ] 176. Spell-check and proofread docs for: grpc-reference
+- [ ] 177. Add examples to docs for: grpc-reference
+- [ ] 178. Version-stamp docs for: grpc-reference against release
+- [ ] 179. Create docs for: runbook (initial draft)
+- [ ] 180. Review docs for: runbook (technical accuracy)
+- [ ] 181. Cross-link docs for: runbook from README and DEPLOYMENT
+- [ ] 182. Spell-check and proofread docs for: runbook
+- [ ] 183. Add examples to docs for: runbook
+- [ ] 184. Version-stamp docs for: runbook against release
+- [ ] 185. Create docs for: troubleshooting (initial draft)
+- [ ] 186. Review docs for: troubleshooting (technical accuracy)
+- [ ] 187. Cross-link docs for: troubleshooting from README and DEPLOYMENT
+- [ ] 188. Spell-check and proofread docs for: troubleshooting
+- [ ] 189. Add examples to docs for: troubleshooting
+- [ ] 190. Version-stamp docs for: troubleshooting against release
+- [ ] 191. Create docs for: onboarding (initial draft)
+- [ ] 192. Review docs for: onboarding (technical accuracy)
+- [ ] 193. Cross-link docs for: onboarding from README and DEPLOYMENT
+- [ ] 194. Spell-check and proofread docs for: onboarding
+- [ ] 195. Add examples to docs for: onboarding
+- [ ] 196. Version-stamp docs for: onboarding against release
+- [ ] 197. Create docs for: contribution (initial draft)
+- [ ] 198. Review docs for: contribution (technical accuracy)
+- [ ] 199. Cross-link docs for: contribution from README and DEPLOYMENT
+- [ ] 200. Spell-check and proofread docs for: contribution
+- [ ] 201. Add examples to docs for: contribution
+- [ ] 202. Version-stamp docs for: contribution against release
+- [ ] 203. Create docs for: governance (initial draft)
+- [ ] 204. Review docs for: governance (technical accuracy)
+- [ ] 205. Cross-link docs for: governance from README and DEPLOYMENT
+- [ ] 206. Spell-check and proofread docs for: governance
+- [ ] 207. Add examples to docs for: governance
+- [ ] 208. Version-stamp docs for: governance against release
+- [ ] 209. Create docs for: benchmarks (initial draft)
+- [ ] 210. Review docs for: benchmarks (technical accuracy)
+- [ ] 211. Cross-link docs for: benchmarks from README and DEPLOYMENT
+- [ ] 212. Spell-check and proofread docs for: benchmarks
+- [ ] 213. Add examples to docs for: benchmarks
+- [ ] 214. Version-stamp docs for: benchmarks against release
+- [ ] 215. Create docs for: operations (initial draft)
+- [ ] 216. Review docs for: operations (technical accuracy)
+- [ ] 217. Cross-link docs for: operations from README and DEPLOYMENT
+- [ ] 218. Spell-check and proofread docs for: operations
+- [ ] 219. Add examples to docs for: operations
+- [ ] 220. Version-stamp docs for: operations against release
+- [ ] 221. Create docs for: compliance (initial draft)
+- [ ] 222. Review docs for: compliance (technical accuracy)
+- [ ] 223. Cross-link docs for: compliance from README and DEPLOYMENT
+- [ ] 224. Spell-check and proofread docs for: compliance
+- [ ] 225. Add examples to docs for: compliance
+- [ ] 226. Version-stamp docs for: compliance against release
+- [ ] 227. Create docs for: glossary (initial draft)
+- [ ] 228. Review docs for: glossary (technical accuracy)
+- [ ] 229. Cross-link docs for: glossary from README and DEPLOYMENT
+- [ ] 230. Spell-check and proofread docs for: glossary
+- [ ] 231. Add examples to docs for: glossary
+- [ ] 232. Version-stamp docs for: glossary against release
+- [ ] 233. Create docs for: faq (initial draft)
+- [ ] 234. Review docs for: faq (technical accuracy)
+- [ ] 235. Cross-link docs for: faq from README and DEPLOYMENT
+- [ ] 236. Spell-check and proofread docs for: faq
+- [ ] 237. Add examples to docs for: faq
+- [ ] 238. Version-stamp docs for: faq against release
+- [ ] 239. Create docs for: release-notes (initial draft)
+- [ ] 240. Review docs for: release-notes (technical accuracy)
+- [ ] 241. Cross-link docs for: release-notes from README and DEPLOYMENT
+- [ ] 242. Spell-check and proofread docs for: release-notes
+- [ ] 243. Add examples to docs for: release-notes
+- [ ] 244. Version-stamp docs for: release-notes against release
+- [ ] 245. Create docs for: changelog (initial draft)
+- [ ] 246. Review docs for: changelog (technical accuracy)
+- [ ] 247. Cross-link docs for: changelog from README and DEPLOYMENT
+- [ ] 248. Spell-check and proofread docs for: changelog
+- [ ] 249. Add examples to docs for: changelog
+- [ ] 250. Version-stamp docs for: changelog against release
+- [ ] 251. Create docs for: roadmap (initial draft)
+- [ ] 252. Review docs for: roadmap (technical accuracy)
+- [ ] 253. Cross-link docs for: roadmap from README and DEPLOYMENT
+- [ ] 254. Spell-check and proofread docs for: roadmap
+- [ ] 255. Add examples to docs for: roadmap
+- [ ] 256. Version-stamp docs for: roadmap against release
+- [ ] 257. Create docs for: code-of-conduct (initial draft)
+- [ ] 258. Review docs for: code-of-conduct (technical accuracy)
+- [ ] 259. Cross-link docs for: code-of-conduct from README and DEPLOYMENT
+- [ ] 260. Spell-check and proofread docs for: code-of-conduct
+- [ ] 261. Add examples to docs for: code-of-conduct
+- [ ] 262. Version-stamp docs for: code-of-conduct against release
+- [ ] 263. Document SPDZ protocol end-to-end with formulas in docs/protocol-specs
+- [ ] 264. Document FHE scheme parameters and security assumptions in docs/protocol-specs
+- [ ] 265. Document the MAC scheme and key-sharing invariants in docs/protocol-specs
+- [ ] 266. Document PRSS deterministic seed assumptions in docs/protocol-specs
+- [ ] 267. Document Beaver triple generation correctness in docs/protocol-specs
+- [ ] 268. Document threat model: semi-honest vs malicious in docs/design/threat-model.md
+- [ ] 269. Document trust boundaries between parties and coordinator in threat-model
+- [ ] 270. Document what TcpNoise/Tcp label means on the wire in network docs
+- [ ] 271. Document API authentication requirements in api-reference
+- [ ] 272. Document rate limits and quota semantics in api-reference
+- [ ] 273. Document error codes for all REST endpoints in api-reference
+- [ ] 274. Document gRPC status-code mapping in grpc-reference
+- [ ] 275. Document session lifecycle state machine in architecture
+- [ ] 276. Document coordinator audit log semantics in architecture
+- [ ] 277. Document benchmark methodology in benchmarks docs
+- [ ] 278. Document deployment topology options in operations docs
+- [ ] 279. Document backup and restore procedures in runbook
+- [ ] 280. Document incident response procedures in runbook
+- [ ] 281. Document certificate rotation procedures in runbook
+- [ ] 282. Document key compromise response in runbook
+- [ ] 283. Document secrets management policy in security-policy
+- [ ] 284. Document data retention and deletion in compliance docs
+- [ ] 285. Document GDPR/CCPA posture in compliance docs
+- [ ] 286. Document on-call rotation and escalation in operations docs
+- [ ] 287. Write troubleshooting guide for common failure modes
+- [ ] 288. Add FAQ covering SMPC basics and deployment questions
+
+## 3. CI/CD
+
+- [x] 289. Create .github/workflows/ci.yml
+- [x] 290. CI: install Rust toolchain pinned to 1.97
+- [x] 291. CI: cache cargo registry and target
+- [x] 292. CI: run cargo fmt --check
+- [x] 293. CI: run cargo clippy --workspace --all-targets -- -D warnings
+- [x] 294. CI: run cargo build --workspace
+- [x] 295. CI: run cargo test --workspace
+- [x] 296. CI: run cargo audit on advisories
+- [x] 297. CI: run cargo deny check licenses
+- [x] 298. CI: run cargo deny check bans
+- [x] 299. CI: run cargo doc --no-deps
+- [x] 300. CI: run on push to main and pull requests
+- [x] 301. CI: add workflow_dispatch trigger
+- [ ] 302. CI: upload test artifacts on failure
+- [x] 303. Create .github/workflows/release.yml for tagged builds
+- [ ] 304. Release CI: build release binaries for windows-gnu and linux
+- [ ] 305. Release CI: publish Docker image to GHCR
+- [ ] 306. Release CI: attach checksums and SBOM
+- [ ] 307. Release CI: sign release artifacts
+- [ ] 308. Release CI: create GitHub release with notes
+- [x] 309. Create .github/workflows/bench.yml (nightly benchmark job)
+- [ ] 310. Benchmark CI: run cargo bench and publish deltas
+- [x] 311. Create .github/workflows/security-scan.yml (trivy on images)
+- [x] 312. Add Dependabot config for cargo updates
+- [x] 313. Add Dependabot config for docker updates
+- [x] 314. Add Dependabot config for github-actions updates
+- [ ] 315. Add branch protection rules for main
+- [ ] 316. Add status checks required before merge
+- [ ] 317. Add CI badge to README
+- [ ] 318. Add coverage job (cargo-llvm-cov) to CI
+- [ ] 319. Enforce coverage threshold in CI (initial target)
+- [ ] 320. Add CI job to detect untracked files drift
+- [ ] 321. Add CI job to verify docs build (mdbook or mkdocs)
+
+## 4. Build & Tooling
+
+- [ ] 322. Add rust-toolchain.toml pinning stable 1.97
+- [ ] 323. Add rustfmt.toml with project style
+- [ ] 324. Add clippy.toml with project thresholds
+- [ ] 325. Add deny.toml for cargo-deny
+- [ ] 326. Enable incremental builds in dev profile
+- [ ] 327. Verify release profile lto/codegen-units settings
+- [ ] 328. Verify panic=abort is acceptable for library consumers
+- [ ] 329. Document build prerequisites (protoc via protoc-bin-vendored)
+- [ ] 330. Remove unused workspace dependencies
+- [ ] 331. Add cargo-machete or udeps to CI to catch unused deps
+- [ ] 332. Add cargo-audit to dev tooling docs
+- [ ] 333. Add cargo-llvm-cov to dev tooling docs
+- [ ] 334. Add nextest to CI for faster test runs
+- [ ] 335. Configure nextest with workspace settings
+- [ ] 336. Add build script determinism check (reproducible builds)
+- [ ] 337. Verify build works from clean checkout (no local protoc needed)
+- [ ] 338. Add cross-compile CI job for aarch64
+- [ ] 339. Add Windows build CI job (already windows-gnu toolchain present)
+- [ ] 340. Add macOS build CI job
+- [ ] 341. Document MSRV policy
+
+## 5. Testing Strategy
+
+
+## 5.1 Unit tests by crate
+
+- [ ] 342. Audit unit-test coverage in crates/crypto
+- [ ] 343. Add unit tests for public API of crates/crypto
+- [ ] 344. Add unit tests for error paths in crates/crypto
+- [ ] 345. Add unit tests for boundary values in crates/crypto
+- [ ] 346. Ensure crates/crypto tests run without network access
+- [ ] 347. Ensure crates/crypto tests are deterministic
+- [ ] 348. Add doc-tests for public items in crates/crypto
+- [ ] 349. Audit unit-test coverage in crates/protocol
+- [ ] 350. Add unit tests for public API of crates/protocol
+- [ ] 351. Add unit tests for error paths in crates/protocol
+- [ ] 352. Add unit tests for boundary values in crates/protocol
+- [ ] 353. Ensure crates/protocol tests run without network access
+- [ ] 354. Ensure crates/protocol tests are deterministic
+- [ ] 355. Add doc-tests for public items in crates/protocol
+- [ ] 356. Audit unit-test coverage in crates/network
+- [ ] 357. Add unit tests for public API of crates/network
+- [ ] 358. Add unit tests for error paths in crates/network
+- [ ] 359. Add unit tests for boundary values in crates/network
+- [ ] 360. Ensure crates/network tests run without network access
+- [ ] 361. Ensure crates/network tests are deterministic
+- [ ] 362. Add doc-tests for public items in crates/network
+- [ ] 363. Audit unit-test coverage in crates/coordinator
+- [ ] 364. Add unit tests for public API of crates/coordinator
+- [ ] 365. Add unit tests for error paths in crates/coordinator
+- [ ] 366. Add unit tests for boundary values in crates/coordinator
+- [ ] 367. Ensure crates/coordinator tests run without network access
+- [ ] 368. Ensure crates/coordinator tests are deterministic
+- [ ] 369. Add doc-tests for public items in crates/coordinator
+- [ ] 370. Audit unit-test coverage in crates/api
+- [ ] 371. Add unit tests for public API of crates/api
+- [ ] 372. Add unit tests for error paths in crates/api
+- [ ] 373. Add unit tests for boundary values in crates/api
+- [ ] 374. Ensure crates/api tests run without network access
+- [ ] 375. Ensure crates/api tests are deterministic
+- [ ] 376. Add doc-tests for public items in crates/api
+- [ ] 377. Audit unit-test coverage in crates/cli
+- [ ] 378. Add unit tests for public API of crates/cli
+- [ ] 379. Add unit tests for error paths in crates/cli
+- [ ] 380. Add unit tests for boundary values in crates/cli
+- [ ] 381. Ensure crates/cli tests run without network access
+- [ ] 382. Ensure crates/cli tests are deterministic
+- [ ] 383. Add doc-tests for public items in crates/cli
+- [ ] 384. Audit unit-test coverage in crates/fhe
+- [ ] 385. Add unit tests for public API of crates/fhe
+- [ ] 386. Add unit tests for error paths in crates/fhe
+- [ ] 387. Add unit tests for boundary values in crates/fhe
+- [ ] 388. Ensure crates/fhe tests run without network access
+- [ ] 389. Ensure crates/fhe tests are deterministic
+- [ ] 390. Add doc-tests for public items in crates/fhe
+- [ ] 391. Audit unit-test coverage in crates/testing
+- [ ] 392. Add unit tests for public API of crates/testing
+- [ ] 393. Add unit tests for error paths in crates/testing
+- [ ] 394. Add unit tests for boundary values in crates/testing
+- [ ] 395. Ensure crates/testing tests run without network access
+- [ ] 396. Ensure crates/testing tests are deterministic
+- [ ] 397. Add doc-tests for public items in crates/testing
+
+## 5.2 Integration tests
+
+- [ ] 398. Add REST API integration test for execute with real outputs
+- [ ] 399. Add REST API integration test for results endpoint
+- [ ] 400. Add gRPC integration test for DefineCircuit error handling
+- [ ] 401. Add gRPC integration test for GetSession real data
+- [ ] 402. Add multi-party TCP integration test with 2 parties
+- [ ] 403. Add multi-party TCP integration test with 5 parties
+- [ ] 404. Add multi-party TCP integration test with 10 parties
+- [ ] 405. Add integration test for TLS transport
+- [ ] 406. Add integration test for FHE hybrid path
+- [ ] 407. Add integration test for FHE mul after implementation
+- [ ] 408. Add integration test for rate limiting
+- [ ] 409. Add integration test for auth failures
+- [ ] 410. Add integration test for oversize message rejection
+- [ ] 411. Add integration test for session cancellation
+- [ ] 412. Add integration test for audit log commitments
+- [ ] 413. Add integration test for policy enforcement on circuit upload
+- [ ] 414. Add end-to-end test: CLI create -> execute -> results
+- [ ] 415. Add end-to-end test: docker-compose stack
+- [ ] 416. Integration test Input gate through full distributed protocol
+- [ ] 417. Integration test Input gate through single-party SPDZ
+- [ ] 418. Integration test Const gate through full distributed protocol
+- [ ] 419. Integration test Const gate through single-party SPDZ
+- [ ] 420. Integration test Add gate through full distributed protocol
+- [ ] 421. Integration test Add gate through single-party SPDZ
+- [ ] 422. Integration test Sub gate through full distributed protocol
+- [ ] 423. Integration test Sub gate through single-party SPDZ
+- [ ] 424. Integration test Mul gate through full distributed protocol
+- [ ] 425. Integration test Mul gate through single-party SPDZ
+- [ ] 426. Integration test ScalarMul gate through full distributed protocol
+- [ ] 427. Integration test ScalarMul gate through single-party SPDZ
+- [ ] 428. Integration test Neg gate through full distributed protocol
+- [ ] 429. Integration test Neg gate through single-party SPDZ
+- [ ] 430. Integration test Output gate through full distributed protocol
+- [ ] 431. Integration test Output gate through single-party SPDZ
+- [ ] 432. Integration test Equal gate through full distributed protocol
+- [ ] 433. Integration test Equal gate through single-party SPDZ
+- [ ] 434. Integration test GreaterThan gate through full distributed protocol
+- [ ] 435. Integration test GreaterThan gate through single-party SPDZ
+
+## 5.3 Property-based tests
+
+- [ ] 436. Property test: add shares reconstruct correctly with zero operand
+- [ ] 437. Property test: mul shares reconstruct correctly with zero operand
+- [ ] 438. Property test: MAC verification holds with zero operand
+- [ ] 439. Property test: add shares reconstruct correctly with one operand
+- [ ] 440. Property test: mul shares reconstruct correctly with one operand
+- [ ] 441. Property test: MAC verification holds with one operand
+- [ ] 442. Property test: add shares reconstruct correctly with negative operand
+- [ ] 443. Property test: mul shares reconstruct correctly with negative operand
+- [ ] 444. Property test: MAC verification holds with negative operand
+- [ ] 445. Property test: add shares reconstruct correctly with field_max operand
+- [ ] 446. Property test: mul shares reconstruct correctly with field_max operand
+- [ ] 447. Property test: MAC verification holds with field_max operand
+- [ ] 448. Property test: add shares reconstruct correctly with large_random operand
+- [ ] 449. Property test: mul shares reconstruct correctly with large_random operand
+- [ ] 450. Property test: MAC verification holds with large_random operand
+- [ ] 451. Property test: additive sharing round-trips for random values
+- [ ] 452. Property test: Beaver triple validity a*b == c
+- [ ] 453. Property test: key agreement yields equal alpha for all parties
+- [ ] 454. Property test: serialization round-trips for all protocol messages
+- [ ] 455. Property test: circuit add/mul evaluate equal to plain arithmetic
+- [ ] 456. Property test: reconstruct_outputs equals plaintext for random circuits
+
+## 5.4 Fuzzing
+
+- [ ] 457. Add fuzz target for frame parser (length-prefix robustness)
+- [ ] 458. Add fuzz target for bincode deserialization of protocol messages
+- [ ] 459. Add fuzz target for circuit deserialization
+- [ ] 460. Add fuzz target for REST request bodies
+- [ ] 461. Add fuzz target for gRPC request messages
+- [ ] 462. Wire cargo-fuzz targets into CI (nightly)
+
+## 5.5 Test infrastructure
+
+- [ ] 463. Add test fixtures for certificates
+- [ ] 464. Add test fixtures for multi-party topologies
+- [ ] 465. Add deterministic test RNG configuration
+- [ ] 466. Add test coverage reporting setup (llvm-cov)
+- [ ] 467. Document how to run a single test quickly
+- [ ] 468. Document how to run tests against real TCP (no mocking)
+
+## 6. Protocol Correctness
+
+- [ ] 469. Adversarial review of key_agreement phase
+- [ ] 470. Verify key_agreement phase message ordering and round barriers
+- [ ] 471. Verify key_agreement phase handles party-count edge cases
+- [ ] 472. Verify key_agreement phase MAC consistency
+- [ ] 473. Verify key_agreement phase serialization compatibility
+- [ ] 474. Document key_agreement phase protocol assumptions
+- [ ] 475. Add unit test for key_agreement phase with 3 parties
+- [ ] 476. Add unit test for key_agreement phase with tampered message
+- [ ] 477. Adversarial review of run_offline phase
+- [ ] 478. Verify run_offline phase message ordering and round barriers
+- [ ] 479. Verify run_offline phase handles party-count edge cases
+- [ ] 480. Verify run_offline phase MAC consistency
+- [ ] 481. Verify run_offline phase serialization compatibility
+- [ ] 482. Document run_offline phase protocol assumptions
+- [ ] 483. Add unit test for run_offline phase with 3 parties
+- [ ] 484. Add unit test for run_offline phase with tampered message
+- [ ] 485. Adversarial review of share_inputs phase
+- [ ] 486. Verify share_inputs phase message ordering and round barriers
+- [ ] 487. Verify share_inputs phase handles party-count edge cases
+- [ ] 488. Verify share_inputs phase MAC consistency
+- [ ] 489. Verify share_inputs phase serialization compatibility
+- [ ] 490. Document share_inputs phase protocol assumptions
+- [ ] 491. Add unit test for share_inputs phase with 3 parties
+- [ ] 492. Add unit test for share_inputs phase with tampered message
+- [ ] 493. Adversarial review of run_online phase
+- [ ] 494. Verify run_online phase message ordering and round barriers
+- [ ] 495. Verify run_online phase handles party-count edge cases
+- [ ] 496. Verify run_online phase MAC consistency
+- [ ] 497. Verify run_online phase serialization compatibility
+- [ ] 498. Document run_online phase protocol assumptions
+- [ ] 499. Add unit test for run_online phase with 3 parties
+- [ ] 500. Add unit test for run_online phase with tampered message
+- [ ] 501. Adversarial review of reconstruct_outputs phase
+- [ ] 502. Verify reconstruct_outputs phase message ordering and round barriers
+- [ ] 503. Verify reconstruct_outputs phase handles party-count edge cases
+- [ ] 504. Verify reconstruct_outputs phase MAC consistency
+- [ ] 505. Verify reconstruct_outputs phase serialization compatibility
+- [ ] 506. Document reconstruct_outputs phase protocol assumptions
+- [ ] 507. Add unit test for reconstruct_outputs phase with 3 parties
+- [ ] 508. Add unit test for reconstruct_outputs phase with tampered message
+- [ ] 509. Verify sum of alpha shares equals alpha invariant
+- [ ] 510. Verify c_share reconstruction matches a*b for generated triples
+- [ ] 511. Verify e*f*alpha_share MAC term telescopes correctly
+- [ ] 512. Verify public constant sharing uses value/n correctly
+- [ ] 513. Verify scalar_mul preserves MAC invariant
+- [ ] 514. Verify neg/sub preserve MAC invariant
+- [ ] 515. Verify output reveal only to listed parties
+- [ ] 516. Verify input sharing distributes exactly n-1 shares
+- [ ] 517. Verify party owning input wire uses provided value over gate default
+- [ ] 518. Verify num_triples >= mul gates in distributed run
+- [ ] 519. Verify no partial reveal of e/f before all shares collected
+- [ ] 520. Verify MAC check failure produces MacVerification error
+- [ ] 521. Verify comparison gates error path is clear
+- [ ] 522. Review arithmetic overflow semantics in ark-ff field
+- [ ] 523. Verify circuit wire numbering is consistent across gates
+- [ ] 524. Verify circuit num_inputs vs input gates consistency
+- [ ] 525. Add test: circuit with zero multiplication gates
+- [ ] 526. Add test: circuit with many chained muls
+- [ ] 527. Add test: circuit with only constants
+- [ ] 528. Add test: circuit referencing out-of-range wires
+- [ ] 529. Add test: single-party execution (n=1)
+- [ ] 530. Add test: 2-party execution
+- [ ] 531. Add test: high-party-count execution (32)
+- [ ] 532. Verify offline generate_triples uses deterministic PRSS across parties
+- [ ] 533. Verify alpha from key agreement matches alpha_share sum
+- [ ] 534. Verify AuthenticatedShare::authenticate uses full alpha correctly
+
+## 7. Networking & Transport
+
+
+## 7.1 TCP transport
+
+- [ ] 535. Enforce max_message_size in TcpTransport frame reader
+- [ ] 536. Add connection retry with backoff to connect_and_send
+- [ ] 537. Add send timeout to connect_and_send
+- [ ] 538. Add recv timeout semantics (clear error vs infinite loop)
+- [ ] 539. Handle partial writes in connect_and_send
+- [ ] 540. Handle stream EOF during frame read with clear error
+- [ ] 541. Limit number of concurrent inbound connections
+- [ ] 542. Add backpressure on inbound mailbox when full
+- [ ] 543. Add metrics: messages sent/received per party
+- [ ] 544. Add metrics: connection errors and retries
+- [ ] 545. Add structured logging of connection lifecycle
+- [ ] 546. Add TLS/mTLS option to TcpTransport
+- [ ] 547. Verify peer endpoint resolution handles both party_N and N
+- [ ] 548. Verify broadcast skips self correctly
+- [ ] 549. Verify FIFO ordering under concurrent senders
+- [ ] 550. Add test: message survives large payload (near max size)
+- [ ] 551. Add test: message exceeding max size rejected
+- [ ] 552. Add test: two parties send simultaneously (deadlock check)
+- [ ] 553. Add test: party joins mid-protocol fails cleanly
+- [ ] 554. Add test: bind failure surfaces NetworkError::Connection
+
+## 7.2 In-memory transport
+
+- [ ] 555. Verify in-memory recv preserves FIFO order
+- [ ] 556. Verify in-memory broadcast semantics match TCP
+- [ ] 557. Add test: in-memory transport with 10 parties
+- [ ] 558. Add test: NoMessage returned when mailbox empty
+- [ ] 559. Document in-memory transport is test-only
+
+## 7.3 Framing & serialization
+
+- [ ] 560. Document frame format (4-byte length + payload)
+- [ ] 561. Add version byte to frame format for forward compat
+- [ ] 562. Add checksum/authentication to frames when TLS absent
+- [ ] 563. Verify bincode version compatibility across crate boundaries
+- [ ] 564. Add serialization round-trip tests for all wire messages
+- [ ] 565. Add max-frame-size config plumbed from SessionConfig
+
+## 7.4 Message channel
+
+- [ ] 566. Verify recv_from drains transport mailbox correctly
+- [ ] 567. Verify per-sender inbox demux ordering
+- [ ] 568. Verify recv_all returns each peer exactly once
+- [ ] 569. Verify all_to_all broadcast + collect is barrier-safe
+- [ ] 570. Add timeout to recv_from to prevent infinite spin
+- [ ] 571. Add test: recv_all under concurrent broadcast storm
+- [ ] 572. Document PartyChannel ordering guarantees
+
+## 7.5 Identity & auth
+
+- [ ] 573. Replace self-HMAC verify with proper signature verification
+- [ ] 574. Define key exchange / trust setup for parties
+- [ ] 575. Add key IDs and rotation to identity
+- [ ] 576. Zeroize identity secret keys after use
+- [ ] 577. Add test: identity verify rejects message from other party
+- [ ] 578. Document identity trust model in threat-model
+- [ ] 579. Add cert chain validation in TLS configs
+- [ ] 580. Add client-cert requirement option (mTLS)
+
+## 8. Security
+
+- [ ] 581. Complete threat model document
+- [ ] 582. Document mitigation for threat: MITM
+- [ ] 583. Add regression test for threat: MITM
+- [ ] 584. Document mitigation for threat: replay
+- [ ] 585. Add regression test for threat: replay
+- [ ] 586. Document mitigation for threat: replay-of-stale-round
+- [ ] 587. Add regression test for threat: replay-of-stale-round
+- [ ] 588. Document mitigation for threat: message-forgery
+- [ ] 589. Add regression test for threat: message-forgery
+- [ ] 590. Document mitigation for threat: share-tampering
+- [ ] 591. Add regression test for threat: share-tampering
+- [ ] 592. Document mitigation for threat: premature-abort
+- [ ] 593. Add regression test for threat: premature-abort
+- [ ] 594. Document mitigation for threat: length-prefix-bomb
+- [ ] 595. Add regression test for threat: length-prefix-bomb
+- [ ] 596. Document mitigation for threat: deserialization-bomb
+- [ ] 597. Add regression test for threat: deserialization-bomb
+- [ ] 598. Document mitigation for threat: resource-exhaustion
+- [ ] 599. Add regression test for threat: resource-exhaustion
+- [ ] 600. Document mitigation for threat: timing-side-channel
+- [ ] 601. Add regression test for threat: timing-side-channel
+- [ ] 602. Document mitigation for threat: cache-side-channel
+- [ ] 603. Add regression test for threat: cache-side-channel
+- [ ] 604. Document mitigation for threat: entropy-exhaustion
+- [ ] 605. Add regression test for threat: entropy-exhaustion
+- [ ] 606. Document mitigation for threat: key-leak
+- [ ] 607. Add regression test for threat: key-leak
+- [ ] 608. Document mitigation for threat: cert-theft
+- [ ] 609. Add regression test for threat: cert-theft
+- [ ] 610. Document mitigation for threat: coordinator-compromise
+- [ ] 611. Add regression test for threat: coordinator-compromise
+- [ ] 612. Document mitigation for threat: insider-party
+- [ ] 613. Add regression test for threat: insider-party
+- [ ] 614. Document mitigation for threat: colluding-parties
+- [ ] 615. Add regression test for threat: colluding-parties
+- [ ] 616. Document mitigation for threat: rogue-joiner
+- [ ] 617. Add regression test for threat: rogue-joiner
+- [ ] 618. Document mitigation for threat: session-hijack
+- [ ] 619. Add regression test for threat: session-hijack
+- [ ] 620. Document mitigation for threat: replay-session-id
+- [ ] 621. Add regression test for threat: replay-session-id
+- [ ] 622. Add constant-time comparison for secret-dependent checks
+- [ ] 623. Verify no secret data in logs
+- [ ] 624. Verify no secret data in error messages
+- [ ] 625. Verify no secrets in debug output
+- [ ] 626. Add secret-redaction to tracing subscriber
+- [ ] 627. Verify zeroize on SecretKey drop
+- [ ] 628. Verify key material never serialized to disk unencrypted
+- [ ] 629. Add test: secret memory zeroization
+- [ ] 630. Add fuzz: oversize length-prefix frame
+- [ ] 631. Add fuzz: truncated frame
+- [ ] 632. Add fuzz: negative/absurd lengths
+- [ ] 633. Add API key authentication middleware for REST
+- [ ] 634. Add API key authentication for gRPC metadata
+- [ ] 635. Add per-session authorization checks on execute
+- [ ] 636. Add role-based access control on participant registration
+- [ ] 637. Add input validation for all string fields (endpoint, name, role)
+- [ ] 638. Add validation: party_id within [0, num_parties)
+- [ ] 639. Add validation: session_id parses as UUID
+- [ ] 640. Add request size limits via tower-http
+- [ ] 641. Add rate limit per IP and per key
+- [ ] 642. Add defense against slowloris (request timeouts)
+- [ ] 643. Add audit of all admin actions
+- [ ] 644. Add do-not-deploy checklist for prod credentials
+
+## 9. Observability
+
+- [ ] 645. Add metrics crate (metrics) to workspace dependencies
+- [ ] 646. Add Prometheus recorder/exporter
+- [ ] 647. Add /metrics endpoint to REST server
+- [ ] 648. Add gRPC metrics interceptor
+- [ ] 649. Add metrics: requests per endpoint
+- [ ] 650. Add metrics: request latency histogram
+- [ ] 651. Add metrics: error rate per endpoint
+- [ ] 652. Add metrics: active sessions
+- [ ] 653. Add metrics: protocol phase durations
+- [ ] 654. Add metrics: network bytes sent/received
+- [ ] 655. Add metrics: triple generation time
+- [ ] 656. Add metrics: MAC verification failures
+- [ ] 657. Add metrics: queue depth in transports
+- [ ] 658. Add tracing spans for each protocol phase
+- [ ] 659. Add tracing spans for network send/recv
+- [ ] 660. Add tracing spans for REST handlers
+- [ ] 661. Add tracing spans for gRPC handlers
+- [ ] 662. Add trace context propagation across parties
+- [ ] 663. Add JSON formatter option for tracing
+- [ ] 664. Add log level configurability per crate
+- [ ] 665. Add panic hook logging
+- [ ] 666. Add graceful shutdown handler with draining
+- [ ] 667. Add startup/shutdown lifecycle logs
+- [ ] 668. Add health check depth (deps status)
+- [ ] 669. Add readiness probe for k8s
+- [ ] 670. Add liveness probe for k8s
+- [ ] 671. Add structured audit log export to JSON lines
+- [ ] 672. Add audit log rotation and retention
+- [ ] 673. Add audit log tamper-evidence verification tool
+- [ ] 674. Document metrics names and dashboards
+
+## 10. Configuration & Deployment
+
+
+## 10.1 Config
+
+- [ ] 675. Add TOML config file loading
+- [ ] 676. Add config validation with clear errors
+- [ ] 677. Add config file path flag to CLI
+- [ ] 678. Add env override precedence over file
+- [ ] 679. Expose protocol.max_rounds via env
+- [ ] 680. Expose protocol.malicious via env
+- [ ] 681. Expose api.enabled via env
+- [ ] 682. Expose api.listen_addr via env
+- [ ] 683. Add secrets config (key file paths)
+- [ ] 684. Add TLS cert/key path config
+- [ ] 685. Add rate-limit config
+- [ ] 686. Add max-message-size config
+- [ ] 687. Add logging config (format, level)
+- [ ] 688. Add metrics config (endpoint, enabled)
+- [ ] 689. Add config unit tests for precedence
+- [ ] 690. Add config integration test loading a real file
+- [ ] 691. Document every config key in README
+- [ ] 692. Add config schema JSON for tooling
+
+## 10.2 Docker
+
+- [ ] 693. Pin base image digest in Dockerfile
+- [ ] 694. Add non-root user in runtime image
+- [ ] 695. Add HEALTHCHECK instruction to Dockerfile
+- [ ] 696. Add multi-arch build (linux/amd64, linux/arm64)
+- [x] 697. Add .dockerignore
+- [ ] 698. Document image tags and provenance
+- [ ] 699. Add docker-compose overlay for production (secrets, limits)
+- [ ] 700. Add docker-compose overlay for staging
+- [ ] 701. Add compose healthchecks for all services
+- [ ] 702. Add compose resource limits
+- [ ] 703. Add compose TLS volume mounts
+- [ ] 704. Verify compose party services run real distributed MPC
+
+## 10.3 Kubernetes
+
+- [ ] 705. Add k8s namespace manifest
+- [ ] 706. Document k8s namespace configuration
+- [ ] 707. Add k8s configmap manifest
+- [ ] 708. Document k8s configmap configuration
+- [ ] 709. Add k8s secret manifest
+- [ ] 710. Document k8s secret configuration
+- [ ] 711. Add k8s serviceaccount manifest
+- [ ] 712. Document k8s serviceaccount configuration
+- [ ] 713. Add k8s deployment manifest
+- [ ] 714. Document k8s deployment configuration
+- [ ] 715. Add k8s service manifest
+- [ ] 716. Document k8s service configuration
+- [ ] 717. Add k8s statefulset manifest
+- [ ] 718. Document k8s statefulset configuration
+- [ ] 719. Add k8s ingress manifest
+- [ ] 720. Document k8s ingress configuration
+- [ ] 721. Add k8s networkpolicy manifest
+- [ ] 722. Document k8s networkpolicy configuration
+- [ ] 723. Add k8s pdb manifest
+- [ ] 724. Document k8s pdb configuration
+- [ ] 725. Add k8s hpa manifest
+- [ ] 726. Document k8s hpa configuration
+- [ ] 727. Add k8s svc-monitor manifest
+- [ ] 728. Document k8s svc-monitor configuration
+- [ ] 729. Add k8s pvc manifest
+- [ ] 730. Document k8s pvc configuration
+- [ ] 731. Add k8s init-container manifest
+- [ ] 732. Document k8s init-container configuration
+- [ ] 733. Add k8s sidecar manifest
+- [ ] 734. Document k8s sidecar configuration
+- [ ] 735. Add k8s toleration manifest
+- [ ] 736. Document k8s toleration configuration
+- [ ] 737. Add k8s affinity manifest
+- [ ] 738. Document k8s affinity configuration
+- [ ] 739. Add k8s nodeselector manifest
+- [ ] 740. Document k8s nodeselector configuration
+- [ ] 741. Add k8s env manifest
+- [ ] 742. Document k8s env configuration
+- [ ] 743. Add k8s liveness-probe manifest
+- [ ] 744. Document k8s liveness-probe configuration
+- [ ] 745. Add k8s readiness-probe manifest
+- [ ] 746. Document k8s readiness-probe configuration
+- [ ] 747. Add k8s startup-probe manifest
+- [ ] 748. Document k8s startup-probe configuration
+- [ ] 749. Add k8s resource-limits manifest
+- [ ] 750. Document k8s resource-limits configuration
+- [ ] 751. Add k8s security-context manifest
+- [ ] 752. Document k8s security-context configuration
+- [ ] 753. Add k8s image-pull-policy manifest
+- [ ] 754. Document k8s image-pull-policy configuration
+- [ ] 755. Add k8s replicas manifest
+- [ ] 756. Document k8s replicas configuration
+- [ ] 757. Add k8s strategy manifest
+- [ ] 758. Document k8s strategy configuration
+- [ ] 759. Add k8s selector manifest
+- [ ] 760. Document k8s selector configuration
+- [ ] 761. Add k8s labels manifest
+- [ ] 762. Document k8s labels configuration
+- [ ] 763. Add Helm chart for coordinator
+- [ ] 764. Add Helm values for environments
+- [ ] 765. Add NetworkPolicy restricting party traffic
+- [ ] 766. Add PodDisruptionBudget
+- [ ] 767. Add HorizontalPodAutoscaler config
+- [ ] 768. Add ServiceMonitor for Prometheus
+- [ ] 769. Add cert-manager integration
+- [ ] 770. Add secret management via ExternalSecrets or vault
+- [ ] 771. Add k8s smoke test in CI (kind)
+- [ ] 772. Document k8s sizing guidance
+
+## 10.4 Terraform
+
+- [ ] 773. Add terraform provider config (aws or generic)
+- [ ] 774. Add terraform VPC module
+- [ ] 775. Add terraform security groups (firewall)
+- [ ] 776. Add terraform EKS/cluster module
+- [ ] 777. Add terraform node group config
+- [ ] 778. Add terraform monitoring stack
+- [ ] 779. Add terraform TLS cert module
+- [ ] 780. Add terraform outputs documentation
+- [ ] 781. Add terraform state management (remote backend)
+- [ ] 782. Add terraform plan job in CI
+
+## 10.5 Environments & secrets
+
+- [ ] 783. Define dev environment config
+- [ ] 784. Define staging environment config
+- [ ] 785. Define production environment config
+- [ ] 786. Define canary deployment strategy
+- [ ] 787. Define DR environment strategy
+- [ ] 788. Add secrets manager integration (Vault)
+- [ ] 789. Document secret rotation cadence
+- [ ] 790. Add key-versioning to identity keys
+- [ ] 791. Document certificate expiry monitoring
+- [ ] 792. Add backup of coordinator state
+- [ ] 793. Add restore drills documentation
+- [ ] 794. Add data retention policy
+
+## 11. API
+
+
+## 11.1 REST
+
+- [ ] 795. Add auth middleware coverage for /health
+- [ ] 796. Add rate limiting for /health
+- [ ] 797. Add request validation for /health
+- [ ] 798. Add response schema documentation for /health
+- [ ] 799. Add error-code documentation for /health
+- [ ] 800. Add integration test happy path for /health
+- [ ] 801. Add integration test error path for /health
+- [ ] 802. Add metrics instrumentation for /health
+- [ ] 803. Add timeout for /health
+- [ ] 804. Verify /health is idempotent where required
+- [ ] 805. Add auth middleware coverage for POST /sessions
+- [ ] 806. Add rate limiting for POST /sessions
+- [ ] 807. Add request validation for POST /sessions
+- [ ] 808. Add response schema documentation for POST /sessions
+- [ ] 809. Add error-code documentation for POST /sessions
+- [ ] 810. Add integration test happy path for POST /sessions
+- [ ] 811. Add integration test error path for POST /sessions
+- [ ] 812. Add metrics instrumentation for POST /sessions
+- [ ] 813. Add timeout for POST /sessions
+- [ ] 814. Verify POST /sessions is idempotent where required
+- [ ] 815. Add auth middleware coverage for GET /sessions/:id
+- [ ] 816. Add rate limiting for GET /sessions/:id
+- [ ] 817. Add request validation for GET /sessions/:id
+- [ ] 818. Add response schema documentation for GET /sessions/:id
+- [ ] 819. Add error-code documentation for GET /sessions/:id
+- [ ] 820. Add integration test happy path for GET /sessions/:id
+- [ ] 821. Add integration test error path for GET /sessions/:id
+- [ ] 822. Add metrics instrumentation for GET /sessions/:id
+- [ ] 823. Add timeout for GET /sessions/:id
+- [ ] 824. Verify GET /sessions/:id is idempotent where required
+- [ ] 825. Add auth middleware coverage for POST /sessions/:id/participants
+- [ ] 826. Add rate limiting for POST /sessions/:id/participants
+- [ ] 827. Add request validation for POST /sessions/:id/participants
+- [ ] 828. Add response schema documentation for POST /sessions/:id/participants
+- [ ] 829. Add error-code documentation for POST /sessions/:id/participants
+- [ ] 830. Add integration test happy path for POST /sessions/:id/participants
+- [ ] 831. Add integration test error path for POST /sessions/:id/participants
+- [ ] 832. Add metrics instrumentation for POST /sessions/:id/participants
+- [ ] 833. Add timeout for POST /sessions/:id/participants
+- [ ] 834. Verify POST /sessions/:id/participants is idempotent where required
+- [ ] 835. Add auth middleware coverage for POST /sessions/:id/execute
+- [ ] 836. Add rate limiting for POST /sessions/:id/execute
+- [ ] 837. Add request validation for POST /sessions/:id/execute
+- [ ] 838. Add response schema documentation for POST /sessions/:id/execute
+- [ ] 839. Add error-code documentation for POST /sessions/:id/execute
+- [ ] 840. Add integration test happy path for POST /sessions/:id/execute
+- [ ] 841. Add integration test error path for POST /sessions/:id/execute
+- [ ] 842. Add metrics instrumentation for POST /sessions/:id/execute
+- [ ] 843. Add timeout for POST /sessions/:id/execute
+- [ ] 844. Verify POST /sessions/:id/execute is idempotent where required
+- [ ] 845. Add auth middleware coverage for GET /sessions/:id/results
+- [ ] 846. Add rate limiting for GET /sessions/:id/results
+- [ ] 847. Add request validation for GET /sessions/:id/results
+- [ ] 848. Add response schema documentation for GET /sessions/:id/results
+- [ ] 849. Add error-code documentation for GET /sessions/:id/results
+- [ ] 850. Add integration test happy path for GET /sessions/:id/results
+- [ ] 851. Add integration test error path for GET /sessions/:id/results
+- [ ] 852. Add metrics instrumentation for GET /sessions/:id/results
+- [ ] 853. Add timeout for GET /sessions/:id/results
+- [ ] 854. Verify GET /sessions/:id/results is idempotent where required
+- [ ] 855. Fix GET /sessions/:id/results to return real reconstructed outputs
+- [ ] 856. Fix GET /sessions/:id to return real name and participant count
+- [ ] 857. Add OpenAPI spec generation or handwritten spec
+- [ ] 858. Add REST request-size middleware
+- [ ] 859. Add JSON error response format consistent across endpoints
+- [ ] 860. Add correlation IDs to responses
+- [ ] 861. Add versioning strategy for REST API
+- [ ] 862. Document pagination if list endpoints added
+- [ ] 863. Add endpoint to list sessions
+- [ ] 864. Add endpoint to cancel session
+- [ ] 865. Add endpoint to get audit log
+- [ ] 866. Add endpoint to get metrics summary
+
+## 11.2 gRPC
+
+- [ ] 867. Add auth metadata middleware for Health RPC
+- [ ] 868. Add rate limiting for Health RPC
+- [ ] 869. Add request validation for Health RPC
+- [ ] 870. Add status-code mapping tests for Health RPC
+- [ ] 871. Add integration test happy path for Health RPC
+- [ ] 872. Add integration test error path for Health RPC
+- [ ] 873. Add metrics interceptor for Health RPC
+- [ ] 874. Document Health RPC in grpc-reference
+- [ ] 875. Add auth metadata middleware for CreateSession RPC
+- [ ] 876. Add rate limiting for CreateSession RPC
+- [ ] 877. Add request validation for CreateSession RPC
+- [ ] 878. Add status-code mapping tests for CreateSession RPC
+- [ ] 879. Add integration test happy path for CreateSession RPC
+- [ ] 880. Add integration test error path for CreateSession RPC
+- [ ] 881. Add metrics interceptor for CreateSession RPC
+- [ ] 882. Document CreateSession RPC in grpc-reference
+- [ ] 883. Add auth metadata middleware for AddParticipant RPC
+- [ ] 884. Add rate limiting for AddParticipant RPC
+- [ ] 885. Add request validation for AddParticipant RPC
+- [ ] 886. Add status-code mapping tests for AddParticipant RPC
+- [ ] 887. Add integration test happy path for AddParticipant RPC
+- [ ] 888. Add integration test error path for AddParticipant RPC
+- [ ] 889. Add metrics interceptor for AddParticipant RPC
+- [ ] 890. Document AddParticipant RPC in grpc-reference
+- [ ] 891. Add auth metadata middleware for GetSession RPC
+- [ ] 892. Add rate limiting for GetSession RPC
+- [ ] 893. Add request validation for GetSession RPC
+- [ ] 894. Add status-code mapping tests for GetSession RPC
+- [ ] 895. Add integration test happy path for GetSession RPC
+- [ ] 896. Add integration test error path for GetSession RPC
+- [ ] 897. Add metrics interceptor for GetSession RPC
+- [ ] 898. Document GetSession RPC in grpc-reference
+- [ ] 899. Add auth metadata middleware for DefineCircuit RPC
+- [ ] 900. Add rate limiting for DefineCircuit RPC
+- [ ] 901. Add request validation for DefineCircuit RPC
+- [ ] 902. Add status-code mapping tests for DefineCircuit RPC
+- [ ] 903. Add integration test happy path for DefineCircuit RPC
+- [ ] 904. Add integration test error path for DefineCircuit RPC
+- [ ] 905. Add metrics interceptor for DefineCircuit RPC
+- [ ] 906. Document DefineCircuit RPC in grpc-reference
+- [ ] 907. Add auth metadata middleware for ExecuteSession RPC
+- [ ] 908. Add rate limiting for ExecuteSession RPC
+- [ ] 909. Add request validation for ExecuteSession RPC
+- [ ] 910. Add status-code mapping tests for ExecuteSession RPC
+- [ ] 911. Add integration test happy path for ExecuteSession RPC
+- [ ] 912. Add integration test error path for ExecuteSession RPC
+- [ ] 913. Add metrics interceptor for ExecuteSession RPC
+- [ ] 914. Document ExecuteSession RPC in grpc-reference
+- [ ] 915. Wire run_grpc_server into CLI verify command (flag --grpc)
+- [ ] 916. Add gRPC reflection service
+- [ ] 917. Add gRPC health service (tonic-health)
+- [ ] 918. Add server-side max message size config for gRPC
+- [ ] 919. Add TLS for gRPC server
+- [ ] 920. Add gRPC deadline configuration
+- [ ] 921. Add generated client stubs for other languages to docs
+- [ ] 922. Add proto comments documenting wire types
+- [ ] 923. Verify proto package osmiridium.api.v1 is stable
+- [ ] 924. Add grpcurl example to docs
+
+## 12. CLI
+
+- [ ] 925. Implement create-session persistence (file or API call)
+- [ ] 926. Implement execute connecting to coordinator API
+- [ ] 927. Implement keygen generating CA + party certs
+- [ ] 928. Add verify --grpc flag to run gRPC server
+- [ ] 929. Add verify --tls flags with cert paths
+- [ ] 930. Add verify --metrics flag
+- [ ] 931. Add bench real protocol benchmark (not just validate)
+- [ ] 932. Add bench --parties option for multi-party timing
+- [ ] 933. Add bench --triples option for offline phase timing
+- [ ] 934. Add config subcommand to print effective config
+- [ ] 935. Add config --file flag to load config file
+- [ ] 936. Add validate subcommand for circuit files
+- [ ] 937. Add version subcommand outputting crate version
+- [ ] 938. Add shell completions (clap_complete)
+- [ ] 939. Add man pages generation
+- [ ] 940. Add --json output option for commands
+- [ ] 941. Add --quiet/--verbose flags
+- [ ] 942. Add exit-code semantics documented per command
+- [ ] 943. Add error messages with action hints
+- [ ] 944. Add tracing subscriber for library users (init only in binary)
+- [ ] 945. Remove "to be implemented" in cli/src/lib.rs or implement library API
+- [ ] 946. Add unit tests for command parsing
+- [ ] 947. Add integration test running CLI end-to-end
+- [ ] 948. Document every CLI command in README with examples
+
+## 13. Coordinator
+
+- [ ] 949. Persist sessions to storage (file or DB)
+- [ ] 950. Persist audit log to storage
+- [ ] 951. Add session expiration/GC
+- [ ] 952. Add session cancellation support
+- [ ] 953. Add session listing API
+- [ ] 954. Add session status transitions validation
+- [ ] 955. Add validation: cannot add participant after Running
+- [ ] 956. Add policy enforcement on participant count
+- [ ] 957. Add policy enforcement on circuit upload (gate types, depth)
+- [ ] 958. Add authorization on execute (only authorized roles)
+- [ ] 959. Add audit events for define_circuit
+- [ ] 960. Add audit events for execute completion
+- [ ] 961. Add audit event for failed executions
+- [ ] 962. Add audit event for participant removal
+- [ ] 963. Add concurrency control on session state
+- [ ] 964. Add test: concurrent add_participant calls
+- [ ] 965. Add test: concurrent execute calls
+- [ ] 966. Add test: session status transitions
+- [ ] 967. Add test: policy blocks oversized circuit
+- [ ] 968. Add test: policy blocks disallowed gate types
+- [ ] 969. Add test: audit log commitment verifies
+- [ ] 970. Add test: audit log filters by session
+- [ ] 971. Add test: distributed execute with 2 parties
+- [ ] 972. Add test: distributed execute with 5 parties
+- [ ] 973. Add test: distributed execute returns per-party outputs
+- [ ] 974. Add test: execute fails cleanly if party endpoint unreachable
+- [ ] 975. Add test: execute fails with wrong input count
+- [ ] 976. Document coordinator trust model in architecture
+- [ ] 977. Add metrics: session lifecycle counts
+- [ ] 978. Add metrics: execution duration histogram
+
+## 14. FHE
+
+- [ ] 979. Implement FHE mul path or feature-gate it
+- [ ] 980. Add FHE scheme parameter validation
+- [ ] 981. Add FHE security-level documentation
+- [ ] 982. Add FHE correctness tests (decrypt(encrypt(x)) == x)
+- [ ] 983. Add FHE add homomorphism test
+- [ ] 984. Add FHE mul homomorphism test
+- [ ] 985. Add FHE serialization round-trip tests
+- [ ] 986. Add FHE noise-budget documentation
+- [ ] 987. Add FHE key generation randomness tests
+- [ ] 988. Add FHE hybrid mode integration test
+- [ ] 989. Add FHE benchmark (encrypt, decrypt, add, mul)
+- [ ] 990. Add FHE fuzz for malformed ciphertext
+- [ ] 991. Document FHE prototype status in README
+- [ ] 992. Add feature flag fhe-prototype to isolate prototype code
+- [ ] 993. Add test: FHE decrypt fails on wrong key
+- [ ] 994. Add test: FHE combine_decryptions correctness
+- [ ] 995. Add test: FHE partial_decrypt correctness
+- [ ] 996. Add docs for threshold decryption
+- [ ] 997. Add noise growth analysis document
+- [ ] 998. Add parameter generation tool
+
+## 15. Performance & Benchmarking
+
+- [ ] 999. Benchmark key_agreement phase latency (3 parties)
+- [ ] 1000. Benchmark key_agreement phase with 5 parties
+- [ ] 1001. Benchmark key_agreement phase with 10 parties
+- [ ] 1002. Benchmark key_agreement phase with 32 parties
+- [ ] 1003. Benchmark run_offline phase latency (3 parties)
+- [ ] 1004. Benchmark run_offline phase with 5 parties
+- [ ] 1005. Benchmark run_offline phase with 10 parties
+- [ ] 1006. Benchmark run_offline phase with 32 parties
+- [ ] 1007. Benchmark share_inputs phase latency (3 parties)
+- [ ] 1008. Benchmark share_inputs phase with 5 parties
+- [ ] 1009. Benchmark share_inputs phase with 10 parties
+- [ ] 1010. Benchmark share_inputs phase with 32 parties
+- [ ] 1011. Benchmark run_online phase latency (3 parties)
+- [ ] 1012. Benchmark run_online phase with 5 parties
+- [ ] 1013. Benchmark run_online phase with 10 parties
+- [ ] 1014. Benchmark run_online phase with 32 parties
+- [ ] 1015. Benchmark reconstruct_outputs phase latency (3 parties)
+- [ ] 1016. Benchmark reconstruct_outputs phase with 5 parties
+- [ ] 1017. Benchmark reconstruct_outputs phase with 10 parties
+- [ ] 1018. Benchmark reconstruct_outputs phase with 32 parties
+- [ ] 1019. Benchmark Beaver triple generation throughput
+- [ ] 1020. Benchmark key agreement total time
+- [ ] 1021. Benchmark full protocol end-to-end latency
+- [ ] 1022. Benchmark network round-trip overhead
+- [ ] 1023. Benchmark serialization overhead
+- [ ] 1024. Benchmark memory usage per party
+- [ ] 1025. Benchmark REST API request latency
+- [ ] 1026. Benchmark gRPC request latency
+- [ ] 1027. Benchmark 100-gate circuit
+- [ ] 1028. Benchmark 1000-gate circuit
+- [ ] 1029. Benchmark 10000-gate circuit
+- [ ] 1030. Profile with perf/flamegraph
+- [ ] 1031. Profile memory with heaptrack
+- [ ] 1032. Add criterion benchmark for online phase
+- [ ] 1033. Add criterion benchmark for offline phase
+- [ ] 1034. Add criterion benchmark for sharing
+- [ ] 1035. Add criterion benchmark for transport send/recv
+- [ ] 1036. Add benchmark results to docs/design/benchmarks.md
+- [ ] 1037. Add load test with many concurrent sessions
+- [ ] 1038. Add soak test (continuous execution)
+- [ ] 1039. Document performance limits and tuning guidance
+- [ ] 1040. Verify release-mode performance parity expectations
+
+## 16. Reliability & Resilience
+
+- [ ] 1041. Add retry with backoff for network sends
+- [ ] 1042. Add circuit-breaker for coordinator API calls
+- [ ] 1043. Add graceful degradation when a party is slow
+- [ ] 1044. Add timeout for entire session execution
+- [ ] 1045. Add timeout for each phase
+- [ ] 1046. Add timeout for each message receive
+- [ ] 1047. Add connection reuse (avoid connect-per-send overhead)
+- [ ] 1048. Add keep-alive for TCP connections
+- [ ] 1049. Add reconnect logic for listeners
+- [ ] 1050. Add supervised task model for party tasks
+- [ ] 1051. Add failure propagation with clear protocol errors
+- [ ] 1052. Add session cleanup on party crash
+- [ ] 1053. Add metrics: timeouts, retries, aborts
+- [ ] 1054. Add alert on execution failure rate
+- [ ] 1055. Add test: party crashes mid-protocol, others fail cleanly
+- [ ] 1056. Add test: network partition recovers with retry
+- [ ] 1057. Add test: coordinator restart with persisted state
+- [ ] 1058. Add test: duplicate messages are handled or rejected
+- [ ] 1059. Add test: out-of-order messages handled or rejected
+- [ ] 1060. Add chaos test: random message delays
+
+## 17. Compliance, Licensing & Governance
+
+- [ ] 1061. Add LICENSE file (BUSL-1.1)
+- [ ] 1062. Add third-party notice file
+- [ ] 1063. Run cargo-deny license check and fix violations
+- [ ] 1064. Document BUSL-1.1 commercial-use terms
+- [ ] 1065. Add data processing agreement template (DPA)
+- [ ] 1066. Document GDPR obligations for SMPC operators
+- [ ] 1067. Document CCPA obligations
+- [ ] 1068. Document data minimization guarantees
+- [ ] 1069. Document right-to-erasure process
+- [ ] 1070. Document audit record retention
+- [ ] 1071. Add export-control statement if applicable
+- [ ] 1072. Add SOC2-aligned control descriptions
+- [ ] 1073. Add ISO-27001-aligned security controls mapping
+- [ ] 1074. Add penetration test plan
+- [ ] 1075. Add security review sign-off gate
+- [ ] 1076. Add responsible disclosure policy in SECURITY.md
+- [ ] 1077. Add dependency vulnerability triage runbook
+- [ ] 1078. Document AI/ML data governance if applicable
+- [ ] 1079. Add open-source governance policy (OSPO)
+- [ ] 1080. Add trademark guidance
+
+## 18. Operations & Support
+
+- [ ] 1081. Create on-call runbook
+- [ ] 1082. Create incident severity definitions
+- [ ] 1083. Create incident response checklist
+- [ ] 1084. Create post-incident review template
+- [ ] 1085. Create monitoring dashboard (Grafana)
+- [ ] 1086. Create alerting rules (Prometheus)
+- [ ] 1087. Create capacity planning guide
+- [ ] 1088. Create backup verification procedure
+- [ ] 1089. Create restore drill procedure
+- [ ] 1090. Create certificate expiry alert
+- [ ] 1091. Create key rotation runbook
+- [ ] 1092. Create upgrade procedure for nodes
+- [ ] 1093. Create downgrade/rollback procedure
+- [ ] 1094. Create maintenance window policy
+- [ ] 1095. Create support ticket SLAs
+- [ ] 1096. Create FAQ for operators
+- [ ] 1097. Create status page for incidents
+- [ ] 1098. Create communications template for outages
+- [ ] 1099. Create data purge procedure
+- [ ] 1100. Create environment promotion checklist
+
+## 19. Post-Launch
+
+- [ ] 1101. Define launch metrics and KPIs
+- [ ] 1102. Define success criteria for launch
+- [ ] 1103. Plan first release blog post
+- [ ] 1104. Plan demo video
+- [ ] 1105. Plan community channels
+- [ ] 1106. Plan first user onboarding sessions
+- [ ] 1107. Plan telemetry opt-in for usage analytics
+- [ ] 1108. Plan support rotation
+- [ ] 1109. Plan 30-day post-launch review
+- [ ] 1110. Plan 90-day roadmap
+- [ ] 1111. Plan security patch process
+- [ ] 1112. Plan version upgrade cadence
+- [ ] 1113. Plan migration tooling for breaking changes
+- [ ] 1114. Plan API deprecation policy
+- [ ] 1115. Plan feature-flag framework
+- [ ] 1116. Plan A/B testing infrastructure
+- [ ] 1117. Plan user feedback loop
+- [ ] 1118. Plan alpha/beta access program
+- [ ] 1119. Plan pricing page
+- [ ] 1120. Plan documentation site hosting
+- [ ] 1121. Plan Slack/Discord community
+- [ ] 1122. Plan GitHub discussions enablement
+- [ ] 1123. Plan first release candidate tagging
+- [ ] 1124. Plan production canary deployment
+- [ ] 1125. Plan load test before launch day
+- [ ] 1126. Plan launch-day on-call coverage
+- [ ] 1127. Plan post-launch performance monitoring review
+- [ ] 1128. Plan quarterly security review cadence
+- [ ] 1129. Plan quarterly dependency refresh
+- [ ] 1130. Plan annual penetration test
+- [ ] 1131. Plan disaster recovery drill cadence
+- [ ] 1132. Plan data-retention review cadence
+- [ ] 1133. Plan supply-chain security review
+- [ ] 1134. Plan SBOM generation in release pipeline
+- [ ] 1135. Plan signed release artifacts verification docs
+- [ ] 1136. Plan reproducible build verification
+- [ ] 1137. Plan audit log export integration
+- [ ] 1138. Plan multi-region deployment
+- [ ] 1139. Plan horizontal scaling of coordinator
+- [ ] 1140. Plan federation between deployments
+- [ ] 1141. Plan cross-deployment MPC (parties in different clouds)
+- [ ] 1142. Plan NAT traversal support
+- [ ] 1143. Plan relay server option
+- [ ] 1144. Plan WebSocket transport implementation
+- [ ] 1145. Plan QUIC transport implementation
+- [ ] 1146. Plan Noise transport implementation
+- [ ] 1147. Plan malicious-security variant
+- [ ] 1148. Plan preprocessing outsourcing
+- [ ] 1149. Plan input validation DSL for operators
+- [ ] 1150. Plan circuit library examples
+- [ ] 1151. Plan tutorial series
+- [ ] 1152. Plan certification program for operators
+
+## 20. Cross-cutting Code Quality
+
+- [ ] 1153. Run clippy -D warnings on crates/crypto and fix findings
+- [ ] 1154. Run rustfmt on crates/crypto and commit formatting
+- [ ] 1155. Audit unwrap/expect/panic in crates/crypto production code
+- [ ] 1156. Audit unwrap/expect/panic in crates/crypto test code
+- [ ] 1157. Add doc comments to all public items in crates/crypto
+- [ ] 1158. Add examples in rustdoc for public API of crates/crypto
+- [ ] 1159. Audit TODO/stub comments in crates/crypto
+- [ ] 1160. Check crates/crypto for duplicate logic that should be shared
+- [ ] 1161. Check crates/crypto for oversized modules needing split
+- [ ] 1162. Verify crates/crypto follows workspace error-handling conventions
+- [ ] 1163. Run clippy -D warnings on crates/protocol and fix findings
+- [ ] 1164. Run rustfmt on crates/protocol and commit formatting
+- [ ] 1165. Audit unwrap/expect/panic in crates/protocol production code
+- [ ] 1166. Audit unwrap/expect/panic in crates/protocol test code
+- [ ] 1167. Add doc comments to all public items in crates/protocol
+- [ ] 1168. Add examples in rustdoc for public API of crates/protocol
+- [ ] 1169. Audit TODO/stub comments in crates/protocol
+- [ ] 1170. Check crates/protocol for duplicate logic that should be shared
+- [ ] 1171. Check crates/protocol for oversized modules needing split
+- [ ] 1172. Verify crates/protocol follows workspace error-handling conventions
+- [ ] 1173. Run clippy -D warnings on crates/network and fix findings
+- [ ] 1174. Run rustfmt on crates/network and commit formatting
+- [ ] 1175. Audit unwrap/expect/panic in crates/network production code
+- [ ] 1176. Audit unwrap/expect/panic in crates/network test code
+- [ ] 1177. Add doc comments to all public items in crates/network
+- [ ] 1178. Add examples in rustdoc for public API of crates/network
+- [ ] 1179. Audit TODO/stub comments in crates/network
+- [ ] 1180. Check crates/network for duplicate logic that should be shared
+- [ ] 1181. Check crates/network for oversized modules needing split
+- [ ] 1182. Verify crates/network follows workspace error-handling conventions
+- [ ] 1183. Run clippy -D warnings on crates/coordinator and fix findings
+- [ ] 1184. Run rustfmt on crates/coordinator and commit formatting
+- [ ] 1185. Audit unwrap/expect/panic in crates/coordinator production code
+- [ ] 1186. Audit unwrap/expect/panic in crates/coordinator test code
+- [ ] 1187. Add doc comments to all public items in crates/coordinator
+- [ ] 1188. Add examples in rustdoc for public API of crates/coordinator
+- [ ] 1189. Audit TODO/stub comments in crates/coordinator
+- [ ] 1190. Check crates/coordinator for duplicate logic that should be shared
+- [ ] 1191. Check crates/coordinator for oversized modules needing split
+- [ ] 1192. Verify crates/coordinator follows workspace error-handling conventions
+- [ ] 1193. Run clippy -D warnings on crates/api and fix findings
+- [ ] 1194. Run rustfmt on crates/api and commit formatting
+- [ ] 1195. Audit unwrap/expect/panic in crates/api production code
+- [ ] 1196. Audit unwrap/expect/panic in crates/api test code
+- [ ] 1197. Add doc comments to all public items in crates/api
+- [ ] 1198. Add examples in rustdoc for public API of crates/api
+- [ ] 1199. Audit TODO/stub comments in crates/api
+- [ ] 1200. Check crates/api for duplicate logic that should be shared
+- [ ] 1201. Check crates/api for oversized modules needing split
+- [ ] 1202. Verify crates/api follows workspace error-handling conventions
+- [ ] 1203. Run clippy -D warnings on crates/cli and fix findings
+- [ ] 1204. Run rustfmt on crates/cli and commit formatting
+- [ ] 1205. Audit unwrap/expect/panic in crates/cli production code
+- [ ] 1206. Audit unwrap/expect/panic in crates/cli test code
+- [ ] 1207. Add doc comments to all public items in crates/cli
+- [ ] 1208. Add examples in rustdoc for public API of crates/cli
+- [ ] 1209. Audit TODO/stub comments in crates/cli
+- [ ] 1210. Check crates/cli for duplicate logic that should be shared
+- [ ] 1211. Check crates/cli for oversized modules needing split
+- [ ] 1212. Verify crates/cli follows workspace error-handling conventions
+- [ ] 1213. Run clippy -D warnings on crates/fhe and fix findings
+- [ ] 1214. Run rustfmt on crates/fhe and commit formatting
+- [ ] 1215. Audit unwrap/expect/panic in crates/fhe production code
+- [ ] 1216. Audit unwrap/expect/panic in crates/fhe test code
+- [ ] 1217. Add doc comments to all public items in crates/fhe
+- [ ] 1218. Add examples in rustdoc for public API of crates/fhe
+- [ ] 1219. Audit TODO/stub comments in crates/fhe
+- [ ] 1220. Check crates/fhe for duplicate logic that should be shared
+- [ ] 1221. Check crates/fhe for oversized modules needing split
+- [ ] 1222. Verify crates/fhe follows workspace error-handling conventions
+- [ ] 1223. Run clippy -D warnings on crates/testing and fix findings
+- [ ] 1224. Run rustfmt on crates/testing and commit formatting
+- [ ] 1225. Audit unwrap/expect/panic in crates/testing production code
+- [ ] 1226. Audit unwrap/expect/panic in crates/testing test code
+- [ ] 1227. Add doc comments to all public items in crates/testing
+- [ ] 1228. Add examples in rustdoc for public API of crates/testing
+- [ ] 1229. Audit TODO/stub comments in crates/testing
+- [ ] 1230. Check crates/testing for duplicate logic that should be shared
+- [ ] 1231. Check crates/testing for oversized modules needing split
+- [ ] 1232. Verify crates/testing follows workspace error-handling conventions
+- [ ] 1233. Run cargo udeps and remove unused dependencies
+- [ ] 1234. Run cargo machete in CI
+- [ ] 1235. Add cargo deny bans config
+- [ ] 1236. Add rustc lints to workspace (unsafe, unused)
+- [ ] 1237. Audit unsafe blocks across workspace
+- [ ] 1238. Document unsafe usage rationale where present
+- [ ] 1239. Add a spell-check job for comments
+- [ ] 1240. Add pre-commit hooks (pre-commit framework)
+- [ ] 1241. Add git hooks for fmt/clippy on commit
+- [ ] 1242. Standardize error types across crates
+- [ ] 1243. Standardize Result alias naming across crates
+- [ ] 1244. Add shared error conversion traits between crates
+- [ ] 1245. Audit public API for accidental leaks of internals
+- [ ] 1246. Add semver-checks job in CI
+
+## 21. Accessibility & UX (admin dashboard)
+
+- [ ] 1247. Plan admin dashboard user flows
+- [ ] 1248. Design dashboard information architecture
+- [ ] 1249. Design session monitoring screens
+- [ ] 1250. Design participant management screens
+- [ ] 1251. Design audit log viewer
+- [ ] 1252. Design metrics screens
+- [ ] 1253. Design settings screens
+- [ ] 1254. Design accessibility conformance (WCAG)
+- [ ] 1255. Design keyboard navigation
+- [ ] 1256. Design responsive layouts
+- [ ] 1257. Design error states and empty states
+- [ ] 1258. Design loading states
+- [ ] 1259. Design dark mode
+- [ ] 1260. Design i18n structure
+- [ ] 1261. Design onboarding wizard
+- [ ] 1262. Design API token management UI
+- [ ] 1263. Design documentation links within UI
+- [ ] 1264. Plan UI telemetry (opt-in)
+- [ ] 1265. Plan UI security (CSP, XSS protections)
+- [ ] 1266. Plan UI authentication flow
+
+## 22. Release & Packaging
+
+- [ ] 1267. Define version numbering policy (semver)
+- [ ] 1268. Define release branch strategy
+- [ ] 1269. Define hotfix process
+- [ ] 1270. Create release checklist
+- [ ] 1271. Create release notes template
+- [ ] 1272. Verify builds are reproducible
+- [ ] 1273. Add artifact signing (cosign/GPX)
+- [ ] 1274. Add SBOM generation (cargo sbom or syft)
+- [ ] 1275. Add provenance attestation
+- [ ] 1276. Add container image signing
+- [ ] 1277. Add checksums manifest for binaries
+- [ ] 1278. Add binary release for Windows
+- [ ] 1279. Add binary release for Linux
+- [ ] 1280. Add binary release for macOS
+- [ ] 1281. Add Homebrew formula
+- [ ] 1282. Add cargo install path verification
+- [ ] 1283. Add crates.io publishing decision (or private)
+- [ ] 1284. Add docs.rs publication
+- [ ] 1285. Add version alignment across Cargo.toml and docs
+- [ ] 1286. Add CHANGELOG generation automation
+
+## 23. Storage & State Management
+
+- [ ] 1287. Define coordinator persistence format
+- [ ] 1288. Add session persistence to disk (JSON or SQLite)
+- [ ] 1289. Add audit log persistence
+- [ ] 1290. Add atomic writes for state files
+- [ ] 1291. Add state file locking
+- [ ] 1292. Add migration framework for state schema
+- [ ] 1293. Add backup integration for state
+- [ ] 1294. Add encryption at rest for state
+- [ ] 1295. Add test: persistence round-trip
+- [ ] 1296. Add test: corrupted state file recovery
+- [ ] 1297. Add test: concurrent writers to state
+- [ ] 1298. Document state file locations
+- [ ] 1299. Add state retention and cleanup
+- [ ] 1300. Add exporter for audit log JSON lines
+- [ ] 1301. Add importer for restoring audit log
+
+## 24. Additional Security Hardening
+
+- [ ] 1302. Verify ASLR hardening for release binaries
+- [ ] 1303. Verify stack-protector hardening for release binaries
+- [ ] 1304. Verify RELRO hardening for release binaries
+- [ ] 1305. Verify PIE hardening for release binaries
+- [ ] 1306. Verify Fortify hardening for release binaries
+- [ ] 1307. Verify SafeStack hardening for release binaries
+- [ ] 1308. Add cargo deny for malicious-package checks
+- [ ] 1309. Add sandboxing guidance for party processes
+- [ ] 1310. Add gVisor/Firecracker guidance for untrusted parties
+- [ ] 1311. Add HSM guidance for key storage
+- [ ] 1312. Add TPM guidance for attestation
+- [ ] 1313. Add runtime secret scanning in CI
+- [ ] 1314. Add .gitignore check for secrets
+- [ ] 1315. Add secret detection pre-commit
+- [ ] 1316. Add network egress filtering guidance
+- [ ] 1317. Add DNS pinning/TLS for coordinator
+- [ ] 1318. Add certificate pinning option
+- [ ] 1319. Add audit of file permissions on certs/keys
+- [ ] 1320. Add test: cert files reject world-readable mode
+- [ ] 1321. Add memory-hardening docs (zeroize patterns)
+- [ ] 1322. Add side-channel audit of scalar comparisons
+- [ ] 1323. Add documentation on OWASP ASVS mapping
+- [ ] 1324. Add SAST tool integration (cargo-geiger for unsafe)
+- [ ] 1325. Add cargo-geiger report to CI
+- [ ] 1326. Document minimum security bits (3000) rationale
+- [ ] 1327. Verify field size assumptions in crypto
+
+## 25. Final Pre-Launch Validation
+
+- [ ] 1328. Run full test suite in CI green
+- [ ] 1329. Run clippy -D warnings green
+- [ ] 1330. Run rustfmt --check green
+- [ ] 1331. Run cargo audit clean (no known advisories)
+- [ ] 1332. Run cargo deny clean
+- [ ] 1333. Build release binaries for all platforms
+- [ ] 1334. Smoke-test release binary locally
+- [ ] 1335. Smoke-test Docker image
+- [ ] 1336. Smoke-test docker-compose stack
+- [ ] 1337. Smoke-test k8s deployment in kind
+- [ ] 1338. Verify health endpoints on deployed stack
+- [ ] 1339. Verify TLS end-to-end if enabled
+- [ ] 1340. Verify audit log records a full execution
+- [ ] 1341. Verify metrics endpoint returns data
+- [ ] 1342. Verify backup/restore procedure works
+- [ ] 1343. Verify certificate rotation procedure works
+- [ ] 1344. Verify rate limiting works in deployed stack
+- [ ] 1345. Verify auth rejects unauthenticated calls
+- [ ] 1346. Verify oversized message rejected in deployed stack
+- [ ] 1347. Run load test and record numbers
+- [ ] 1348. Run soak test for 24h
+- [ ] 1349. Review open issues and triage for launch
+- [ ] 1350. Confirm all release-blocker items closed
+- [ ] 1351. Get security review sign-off
+- [ ] 1352. Get compliance sign-off
+- [ ] 1353. Get product sign-off
+- [ ] 1354. Confirm documentation published
+- [ ] 1355. Confirm status page ready
+- [ ] 1356. Confirm on-call schedule set
+- [ ] 1357. Confirm launch communication drafted
+- [ ] 1358. Confirm rollback plan rehearsed
+- [ ] 1359. Confirm feature flags toggles verified
+- [ ] 1360. Confirm license and notices shipped
+- [ ] 1361. Confirm SBOM attached to release
+- [ ] 1362. Confirm image signing verified
+
+## 26. Per-crate Deep Checklist (module-by-module)
+
+- [ ] 1363. Document module circuit in crates/protocol
+- [ ] 1364. Add rustdoc for public items in crates/protocol/circuit
+- [ ] 1365. Add unit tests for crates/protocol/circuit happy paths
+- [ ] 1366. Add unit tests for crates/protocol/circuit error paths
+- [ ] 1367. Add unit tests for crates/protocol/circuit boundary conditions
+- [ ] 1368. Review crates/protocol/circuit for hidden panics
+- [ ] 1369. Review crates/protocol/circuit for race conditions
+- [ ] 1370. Review crates/protocol/circuit for resource leaks
+- [ ] 1371. Review crates/protocol/circuit for integer overflow
+- [ ] 1372. Review crates/protocol/circuit for timing side channels
+- [ ] 1373. Add clippy-clean build for crates/protocol/circuit
+- [ ] 1374. Add serialization round-trip tests for crates/protocol/circuit
+- [ ] 1375. Add proptest coverage for crates/protocol/circuit
+- [ ] 1376. Benchmark hot path in crates/protocol/circuit
+- [ ] 1377. Add docs examples for crates/protocol/circuit public API
+- [ ] 1378. Document module offline in crates/protocol
+- [ ] 1379. Add rustdoc for public items in crates/protocol/offline
+- [ ] 1380. Add unit tests for crates/protocol/offline happy paths
+- [ ] 1381. Add unit tests for crates/protocol/offline error paths
+- [ ] 1382. Add unit tests for crates/protocol/offline boundary conditions
+- [ ] 1383. Review crates/protocol/offline for hidden panics
+- [ ] 1384. Review crates/protocol/offline for race conditions
+- [ ] 1385. Review crates/protocol/offline for resource leaks
+- [ ] 1386. Review crates/protocol/offline for integer overflow
+- [ ] 1387. Review crates/protocol/offline for timing side channels
+- [ ] 1388. Add clippy-clean build for crates/protocol/offline
+- [ ] 1389. Add serialization round-trip tests for crates/protocol/offline
+- [ ] 1390. Add proptest coverage for crates/protocol/offline
+- [ ] 1391. Benchmark hot path in crates/protocol/offline
+- [ ] 1392. Add docs examples for crates/protocol/offline public API
+- [ ] 1393. Document module online in crates/protocol
+- [ ] 1394. Add rustdoc for public items in crates/protocol/online
+- [ ] 1395. Add unit tests for crates/protocol/online happy paths
+- [ ] 1396. Add unit tests for crates/protocol/online error paths
+- [ ] 1397. Add unit tests for crates/protocol/online boundary conditions
+- [ ] 1398. Review crates/protocol/online for hidden panics
+- [ ] 1399. Review crates/protocol/online for race conditions
+- [ ] 1400. Review crates/protocol/online for resource leaks
+- [ ] 1401. Review crates/protocol/online for integer overflow
+- [ ] 1402. Review crates/protocol/online for timing side channels
+- [ ] 1403. Add clippy-clean build for crates/protocol/online
+- [ ] 1404. Add serialization round-trip tests for crates/protocol/online
+- [ ] 1405. Add proptest coverage for crates/protocol/online
+- [ ] 1406. Benchmark hot path in crates/protocol/online
+- [ ] 1407. Add docs examples for crates/protocol/online public API
+- [ ] 1408. Document module distributed in crates/protocol
+- [ ] 1409. Add rustdoc for public items in crates/protocol/distributed
+- [ ] 1410. Add unit tests for crates/protocol/distributed happy paths
+- [ ] 1411. Add unit tests for crates/protocol/distributed error paths
+- [ ] 1412. Add unit tests for crates/protocol/distributed boundary conditions
+- [ ] 1413. Review crates/protocol/distributed for hidden panics
+- [ ] 1414. Review crates/protocol/distributed for race conditions
+- [ ] 1415. Review crates/protocol/distributed for resource leaks
+- [ ] 1416. Review crates/protocol/distributed for integer overflow
+- [ ] 1417. Review crates/protocol/distributed for timing side channels
+- [ ] 1418. Add clippy-clean build for crates/protocol/distributed
+- [ ] 1419. Add serialization round-trip tests for crates/protocol/distributed
+- [ ] 1420. Add proptest coverage for crates/protocol/distributed
+- [ ] 1421. Benchmark hot path in crates/protocol/distributed
+- [ ] 1422. Add docs examples for crates/protocol/distributed public API
+- [ ] 1423. Document module spdz in crates/protocol
+- [ ] 1424. Add rustdoc for public items in crates/protocol/spdz
+- [ ] 1425. Add unit tests for crates/protocol/spdz happy paths
+- [ ] 1426. Add unit tests for crates/protocol/spdz error paths
+- [ ] 1427. Add unit tests for crates/protocol/spdz boundary conditions
+- [ ] 1428. Review crates/protocol/spdz for hidden panics
+- [ ] 1429. Review crates/protocol/spdz for race conditions
+- [ ] 1430. Review crates/protocol/spdz for resource leaks
+- [ ] 1431. Review crates/protocol/spdz for integer overflow
+- [ ] 1432. Review crates/protocol/spdz for timing side channels
+- [ ] 1433. Add clippy-clean build for crates/protocol/spdz
+- [ ] 1434. Add serialization round-trip tests for crates/protocol/spdz
+- [ ] 1435. Add proptest coverage for crates/protocol/spdz
+- [ ] 1436. Benchmark hot path in crates/protocol/spdz
+- [ ] 1437. Add docs examples for crates/protocol/spdz public API
+- [ ] 1438. Document module preprocessing in crates/protocol
+- [ ] 1439. Add rustdoc for public items in crates/protocol/preprocessing
+- [ ] 1440. Add unit tests for crates/protocol/preprocessing happy paths
+- [ ] 1441. Add unit tests for crates/protocol/preprocessing error paths
+- [ ] 1442. Add unit tests for crates/protocol/preprocessing boundary conditions
+- [ ] 1443. Review crates/protocol/preprocessing for hidden panics
+- [ ] 1444. Review crates/protocol/preprocessing for race conditions
+- [ ] 1445. Review crates/protocol/preprocessing for resource leaks
+- [ ] 1446. Review crates/protocol/preprocessing for integer overflow
+- [ ] 1447. Review crates/protocol/preprocessing for timing side channels
+- [ ] 1448. Add clippy-clean build for crates/protocol/preprocessing
+- [ ] 1449. Add serialization round-trip tests for crates/protocol/preprocessing
+- [ ] 1450. Add proptest coverage for crates/protocol/preprocessing
+- [ ] 1451. Benchmark hot path in crates/protocol/preprocessing
+- [ ] 1452. Add docs examples for crates/protocol/preprocessing public API
+- [ ] 1453. Document module evaluation in crates/protocol
+- [ ] 1454. Add rustdoc for public items in crates/protocol/evaluation
+- [ ] 1455. Add unit tests for crates/protocol/evaluation happy paths
+- [ ] 1456. Add unit tests for crates/protocol/evaluation error paths
+- [ ] 1457. Add unit tests for crates/protocol/evaluation boundary conditions
+- [ ] 1458. Review crates/protocol/evaluation for hidden panics
+- [ ] 1459. Review crates/protocol/evaluation for race conditions
+- [ ] 1460. Review crates/protocol/evaluation for resource leaks
+- [ ] 1461. Review crates/protocol/evaluation for integer overflow
+- [ ] 1462. Review crates/protocol/evaluation for timing side channels
+- [ ] 1463. Add clippy-clean build for crates/protocol/evaluation
+- [ ] 1464. Add serialization round-trip tests for crates/protocol/evaluation
+- [ ] 1465. Add proptest coverage for crates/protocol/evaluation
+- [ ] 1466. Benchmark hot path in crates/protocol/evaluation
+- [ ] 1467. Add docs examples for crates/protocol/evaluation public API
+- [ ] 1468. Document module fixtures in crates/testing
+- [ ] 1469. Add rustdoc for public items in crates/testing/fixtures
+- [ ] 1470. Add unit tests for crates/testing/fixtures happy paths
+- [ ] 1471. Add unit tests for crates/testing/fixtures error paths
+- [ ] 1472. Add unit tests for crates/testing/fixtures boundary conditions
+- [ ] 1473. Review crates/testing/fixtures for hidden panics
+- [ ] 1474. Review crates/testing/fixtures for race conditions
+- [ ] 1475. Review crates/testing/fixtures for resource leaks
+- [ ] 1476. Review crates/testing/fixtures for integer overflow
+- [ ] 1477. Review crates/testing/fixtures for timing side channels
+- [ ] 1478. Add clippy-clean build for crates/testing/fixtures
+- [ ] 1479. Add serialization round-trip tests for crates/testing/fixtures
+- [ ] 1480. Add proptest coverage for crates/testing/fixtures
+- [ ] 1481. Benchmark hot path in crates/testing/fixtures
+- [ ] 1482. Add docs examples for crates/testing/fixtures public API
+- [ ] 1483. Document module harness in crates/testing
+- [ ] 1484. Add rustdoc for public items in crates/testing/harness
+- [ ] 1485. Add unit tests for crates/testing/harness happy paths
+- [ ] 1486. Add unit tests for crates/testing/harness error paths
+- [ ] 1487. Add unit tests for crates/testing/harness boundary conditions
+- [ ] 1488. Review crates/testing/harness for hidden panics
+- [ ] 1489. Review crates/testing/harness for race conditions
+- [ ] 1490. Review crates/testing/harness for resource leaks
+- [ ] 1491. Review crates/testing/harness for integer overflow
+- [ ] 1492. Review crates/testing/harness for timing side channels
+- [ ] 1493. Add clippy-clean build for crates/testing/harness
+- [ ] 1494. Add serialization round-trip tests for crates/testing/harness
+- [ ] 1495. Add proptest coverage for crates/testing/harness
+- [ ] 1496. Benchmark hot path in crates/testing/harness
+- [ ] 1497. Add docs examples for crates/testing/harness public API
+- [ ] 1498. Document module proptest in crates/testing
+- [ ] 1499. Add rustdoc for public items in crates/testing/proptest
+- [ ] 1500. Add unit tests for crates/testing/proptest happy paths
+- [ ] 1501. Add unit tests for crates/testing/proptest error paths
+- [ ] 1502. Add unit tests for crates/testing/proptest boundary conditions
+- [ ] 1503. Review crates/testing/proptest for hidden panics
+- [ ] 1504. Review crates/testing/proptest for race conditions
+- [ ] 1505. Review crates/testing/proptest for resource leaks
+- [ ] 1506. Review crates/testing/proptest for integer overflow
+- [ ] 1507. Review crates/testing/proptest for timing side channels
+- [ ] 1508. Add clippy-clean build for crates/testing/proptest
+- [ ] 1509. Add serialization round-trip tests for crates/testing/proptest
+- [ ] 1510. Add proptest coverage for crates/testing/proptest
+- [ ] 1511. Benchmark hot path in crates/testing/proptest
+- [ ] 1512. Add docs examples for crates/testing/proptest public API
+- [ ] 1513. Document module e2e in crates/testing
+- [ ] 1514. Add rustdoc for public items in crates/testing/e2e
+- [ ] 1515. Add unit tests for crates/testing/e2e happy paths
+- [ ] 1516. Add unit tests for crates/testing/e2e error paths
+- [ ] 1517. Add unit tests for crates/testing/e2e boundary conditions
+- [ ] 1518. Review crates/testing/e2e for hidden panics
+- [ ] 1519. Review crates/testing/e2e for race conditions
+- [ ] 1520. Review crates/testing/e2e for resource leaks
+- [ ] 1521. Review crates/testing/e2e for integer overflow
+- [ ] 1522. Review crates/testing/e2e for timing side channels
+- [ ] 1523. Add clippy-clean build for crates/testing/e2e
+- [ ] 1524. Add serialization round-trip tests for crates/testing/e2e
+- [ ] 1525. Add proptest coverage for crates/testing/e2e
+- [ ] 1526. Benchmark hot path in crates/testing/e2e
+- [ ] 1527. Add docs examples for crates/testing/e2e public API
+- [ ] 1528. Document module bench in crates/testing
+- [ ] 1529. Add rustdoc for public items in crates/testing/bench
+- [ ] 1530. Add unit tests for crates/testing/bench happy paths
+- [ ] 1531. Add unit tests for crates/testing/bench error paths
+- [ ] 1532. Add unit tests for crates/testing/bench boundary conditions
+- [ ] 1533. Review crates/testing/bench for hidden panics
+- [ ] 1534. Review crates/testing/bench for race conditions
+- [ ] 1535. Review crates/testing/bench for resource leaks
+- [ ] 1536. Review crates/testing/bench for integer overflow
+- [ ] 1537. Review crates/testing/bench for timing side channels
+- [ ] 1538. Add clippy-clean build for crates/testing/bench
+- [ ] 1539. Add serialization round-trip tests for crates/testing/bench
+- [ ] 1540. Add proptest coverage for crates/testing/bench
+- [ ] 1541. Benchmark hot path in crates/testing/bench
+- [ ] 1542. Add docs examples for crates/testing/bench public API
+- [ ] 1543. Document module utils in crates/testing
+- [ ] 1544. Add rustdoc for public items in crates/testing/utils
+- [ ] 1545. Add unit tests for crates/testing/utils happy paths
+- [ ] 1546. Add unit tests for crates/testing/utils error paths
+- [ ] 1547. Add unit tests for crates/testing/utils boundary conditions
+- [ ] 1548. Review crates/testing/utils for hidden panics
+- [ ] 1549. Review crates/testing/utils for race conditions
+- [ ] 1550. Review crates/testing/utils for resource leaks
+- [ ] 1551. Review crates/testing/utils for integer overflow
+- [ ] 1552. Review crates/testing/utils for timing side channels
+- [ ] 1553. Add clippy-clean build for crates/testing/utils
+- [ ] 1554. Add serialization round-trip tests for crates/testing/utils
+- [ ] 1555. Add proptest coverage for crates/testing/utils
+- [ ] 1556. Benchmark hot path in crates/testing/utils
+- [ ] 1557. Add docs examples for crates/testing/utils public API
+- [ ] 1558. Document module transport in crates/network
+- [ ] 1559. Add rustdoc for public items in crates/network/transport
+- [ ] 1560. Add unit tests for crates/network/transport happy paths
+- [ ] 1561. Add unit tests for crates/network/transport error paths
+- [ ] 1562. Add unit tests for crates/network/transport boundary conditions
+- [ ] 1563. Review crates/network/transport for hidden panics
+- [ ] 1564. Review crates/network/transport for race conditions
+- [ ] 1565. Review crates/network/transport for resource leaks
+- [ ] 1566. Review crates/network/transport for integer overflow
+- [ ] 1567. Review crates/network/transport for timing side channels
+- [ ] 1568. Add clippy-clean build for crates/network/transport
+- [ ] 1569. Add serialization round-trip tests for crates/network/transport
+- [ ] 1570. Add proptest coverage for crates/network/transport
+- [ ] 1571. Benchmark hot path in crates/network/transport
+- [ ] 1572. Add docs examples for crates/network/transport public API
+- [ ] 1573. Document module tcp in crates/network
+- [ ] 1574. Add rustdoc for public items in crates/network/tcp
+- [ ] 1575. Add unit tests for crates/network/tcp happy paths
+- [ ] 1576. Add unit tests for crates/network/tcp error paths
+- [ ] 1577. Add unit tests for crates/network/tcp boundary conditions
+- [ ] 1578. Review crates/network/tcp for hidden panics
+- [ ] 1579. Review crates/network/tcp for race conditions
+- [ ] 1580. Review crates/network/tcp for resource leaks
+- [ ] 1581. Review crates/network/tcp for integer overflow
+- [ ] 1582. Review crates/network/tcp for timing side channels
+- [ ] 1583. Add clippy-clean build for crates/network/tcp
+- [ ] 1584. Add serialization round-trip tests for crates/network/tcp
+- [ ] 1585. Add proptest coverage for crates/network/tcp
+- [ ] 1586. Benchmark hot path in crates/network/tcp
+- [ ] 1587. Add docs examples for crates/network/tcp public API
+- [ ] 1588. Document module in_memory in crates/network
+- [ ] 1589. Add rustdoc for public items in crates/network/in_memory
+- [ ] 1590. Add unit tests for crates/network/in_memory happy paths
+- [ ] 1591. Add unit tests for crates/network/in_memory error paths
+- [ ] 1592. Add unit tests for crates/network/in_memory boundary conditions
+- [ ] 1593. Review crates/network/in_memory for hidden panics
+- [ ] 1594. Review crates/network/in_memory for race conditions
+- [ ] 1595. Review crates/network/in_memory for resource leaks
+- [ ] 1596. Review crates/network/in_memory for integer overflow
+- [ ] 1597. Review crates/network/in_memory for timing side channels
+- [ ] 1598. Add clippy-clean build for crates/network/in_memory
+- [ ] 1599. Add serialization round-trip tests for crates/network/in_memory
+- [ ] 1600. Add proptest coverage for crates/network/in_memory
+- [ ] 1601. Benchmark hot path in crates/network/in_memory
+- [ ] 1602. Add docs examples for crates/network/in_memory public API
+- [ ] 1603. Document module channel in crates/network
+- [ ] 1604. Add rustdoc for public items in crates/network/channel
+- [ ] 1605. Add unit tests for crates/network/channel happy paths
+- [ ] 1606. Add unit tests for crates/network/channel error paths
+- [ ] 1607. Add unit tests for crates/network/channel boundary conditions
+- [ ] 1608. Review crates/network/channel for hidden panics
+- [ ] 1609. Review crates/network/channel for race conditions
+- [ ] 1610. Review crates/network/channel for resource leaks
+- [ ] 1611. Review crates/network/channel for integer overflow
+- [ ] 1612. Review crates/network/channel for timing side channels
+- [ ] 1613. Add clippy-clean build for crates/network/channel
+- [ ] 1614. Add serialization round-trip tests for crates/network/channel
+- [ ] 1615. Add proptest coverage for crates/network/channel
+- [ ] 1616. Benchmark hot path in crates/network/channel
+- [ ] 1617. Add docs examples for crates/network/channel public API
+- [ ] 1618. Document module identity in crates/network
+- [ ] 1619. Add rustdoc for public items in crates/network/identity
+- [ ] 1620. Add unit tests for crates/network/identity happy paths
+- [ ] 1621. Add unit tests for crates/network/identity error paths
+- [ ] 1622. Add unit tests for crates/network/identity boundary conditions
+- [ ] 1623. Review crates/network/identity for hidden panics
+- [ ] 1624. Review crates/network/identity for race conditions
+- [ ] 1625. Review crates/network/identity for resource leaks
+- [ ] 1626. Review crates/network/identity for integer overflow
+- [ ] 1627. Review crates/network/identity for timing side channels
+- [ ] 1628. Add clippy-clean build for crates/network/identity
+- [ ] 1629. Add serialization round-trip tests for crates/network/identity
+- [ ] 1630. Add proptest coverage for crates/network/identity
+- [ ] 1631. Benchmark hot path in crates/network/identity
+- [ ] 1632. Add docs examples for crates/network/identity public API
+- [ ] 1633. Document module cert in crates/network
+- [ ] 1634. Add rustdoc for public items in crates/network/cert
+- [ ] 1635. Add unit tests for crates/network/cert happy paths
+- [ ] 1636. Add unit tests for crates/network/cert error paths
+- [ ] 1637. Add unit tests for crates/network/cert boundary conditions
+- [ ] 1638. Review crates/network/cert for hidden panics
+- [ ] 1639. Review crates/network/cert for race conditions
+- [ ] 1640. Review crates/network/cert for resource leaks
+- [ ] 1641. Review crates/network/cert for integer overflow
+- [ ] 1642. Review crates/network/cert for timing side channels
+- [ ] 1643. Add clippy-clean build for crates/network/cert
+- [ ] 1644. Add serialization round-trip tests for crates/network/cert
+- [ ] 1645. Add proptest coverage for crates/network/cert
+- [ ] 1646. Benchmark hot path in crates/network/cert
+- [ ] 1647. Add docs examples for crates/network/cert public API
+- [ ] 1648. Document module tls in crates/network
+- [ ] 1649. Add rustdoc for public items in crates/network/tls
+- [ ] 1650. Add unit tests for crates/network/tls happy paths
+- [ ] 1651. Add unit tests for crates/network/tls error paths
+- [ ] 1652. Add unit tests for crates/network/tls boundary conditions
+- [ ] 1653. Review crates/network/tls for hidden panics
+- [ ] 1654. Review crates/network/tls for race conditions
+- [ ] 1655. Review crates/network/tls for resource leaks
+- [ ] 1656. Review crates/network/tls for integer overflow
+- [ ] 1657. Review crates/network/tls for timing side channels
+- [ ] 1658. Add clippy-clean build for crates/network/tls
+- [ ] 1659. Add serialization round-trip tests for crates/network/tls
+- [ ] 1660. Add proptest coverage for crates/network/tls
+- [ ] 1661. Benchmark hot path in crates/network/tls
+- [ ] 1662. Add docs examples for crates/network/tls public API
+- [ ] 1663. Document module framing in crates/network
+- [ ] 1664. Add rustdoc for public items in crates/network/framing
+- [ ] 1665. Add unit tests for crates/network/framing happy paths
+- [ ] 1666. Add unit tests for crates/network/framing error paths
+- [ ] 1667. Add unit tests for crates/network/framing boundary conditions
+- [ ] 1668. Review crates/network/framing for hidden panics
+- [ ] 1669. Review crates/network/framing for race conditions
+- [ ] 1670. Review crates/network/framing for resource leaks
+- [ ] 1671. Review crates/network/framing for integer overflow
+- [ ] 1672. Review crates/network/framing for timing side channels
+- [ ] 1673. Add clippy-clean build for crates/network/framing
+- [ ] 1674. Add serialization round-trip tests for crates/network/framing
+- [ ] 1675. Add proptest coverage for crates/network/framing
+- [ ] 1676. Benchmark hot path in crates/network/framing
+- [ ] 1677. Add docs examples for crates/network/framing public API
+- [ ] 1678. Document module rest in crates/api
+- [ ] 1679. Add rustdoc for public items in crates/api/rest
+- [ ] 1680. Add unit tests for crates/api/rest happy paths
+- [ ] 1681. Add unit tests for crates/api/rest error paths
+- [ ] 1682. Add unit tests for crates/api/rest boundary conditions
+- [ ] 1683. Review crates/api/rest for hidden panics
+- [ ] 1684. Review crates/api/rest for race conditions
+- [ ] 1685. Review crates/api/rest for resource leaks
+- [ ] 1686. Review crates/api/rest for integer overflow
+- [ ] 1687. Review crates/api/rest for timing side channels
+- [ ] 1688. Add clippy-clean build for crates/api/rest
+- [ ] 1689. Add serialization round-trip tests for crates/api/rest
+- [ ] 1690. Add proptest coverage for crates/api/rest
+- [ ] 1691. Benchmark hot path in crates/api/rest
+- [ ] 1692. Add docs examples for crates/api/rest public API
+- [ ] 1693. Document module grpc in crates/api
+- [ ] 1694. Add rustdoc for public items in crates/api/grpc
+- [ ] 1695. Add unit tests for crates/api/grpc happy paths
+- [ ] 1696. Add unit tests for crates/api/grpc error paths
+- [ ] 1697. Add unit tests for crates/api/grpc boundary conditions
+- [ ] 1698. Review crates/api/grpc for hidden panics
+- [ ] 1699. Review crates/api/grpc for race conditions
+- [ ] 1700. Review crates/api/grpc for resource leaks
+- [ ] 1701. Review crates/api/grpc for integer overflow
+- [ ] 1702. Review crates/api/grpc for timing side channels
+- [ ] 1703. Add clippy-clean build for crates/api/grpc
+- [ ] 1704. Add serialization round-trip tests for crates/api/grpc
+- [ ] 1705. Add proptest coverage for crates/api/grpc
+- [ ] 1706. Benchmark hot path in crates/api/grpc
+- [ ] 1707. Add docs examples for crates/api/grpc public API
+- [ ] 1708. Document module proto in crates/api
+- [ ] 1709. Add rustdoc for public items in crates/api/proto
+- [ ] 1710. Add unit tests for crates/api/proto happy paths
+- [ ] 1711. Add unit tests for crates/api/proto error paths
+- [ ] 1712. Add unit tests for crates/api/proto boundary conditions
+- [ ] 1713. Review crates/api/proto for hidden panics
+- [ ] 1714. Review crates/api/proto for race conditions
+- [ ] 1715. Review crates/api/proto for resource leaks
+- [ ] 1716. Review crates/api/proto for integer overflow
+- [ ] 1717. Review crates/api/proto for timing side channels
+- [ ] 1718. Add clippy-clean build for crates/api/proto
+- [ ] 1719. Add serialization round-trip tests for crates/api/proto
+- [ ] 1720. Add proptest coverage for crates/api/proto
+- [ ] 1721. Benchmark hot path in crates/api/proto
+- [ ] 1722. Add docs examples for crates/api/proto public API
+- [ ] 1723. Document module auth in crates/api
+- [ ] 1724. Add rustdoc for public items in crates/api/auth
+- [ ] 1725. Add unit tests for crates/api/auth happy paths
+- [ ] 1726. Add unit tests for crates/api/auth error paths
+- [ ] 1727. Add unit tests for crates/api/auth boundary conditions
+- [ ] 1728. Review crates/api/auth for hidden panics
+- [ ] 1729. Review crates/api/auth for race conditions
+- [ ] 1730. Review crates/api/auth for resource leaks
+- [ ] 1731. Review crates/api/auth for integer overflow
+- [ ] 1732. Review crates/api/auth for timing side channels
+- [ ] 1733. Add clippy-clean build for crates/api/auth
+- [ ] 1734. Add serialization round-trip tests for crates/api/auth
+- [ ] 1735. Add proptest coverage for crates/api/auth
+- [ ] 1736. Benchmark hot path in crates/api/auth
+- [ ] 1737. Add docs examples for crates/api/auth public API
+- [ ] 1738. Document module middleware in crates/api
+- [ ] 1739. Add rustdoc for public items in crates/api/middleware
+- [ ] 1740. Add unit tests for crates/api/middleware happy paths
+- [ ] 1741. Add unit tests for crates/api/middleware error paths
+- [ ] 1742. Add unit tests for crates/api/middleware boundary conditions
+- [ ] 1743. Review crates/api/middleware for hidden panics
+- [ ] 1744. Review crates/api/middleware for race conditions
+- [ ] 1745. Review crates/api/middleware for resource leaks
+- [ ] 1746. Review crates/api/middleware for integer overflow
+- [ ] 1747. Review crates/api/middleware for timing side channels
+- [ ] 1748. Add clippy-clean build for crates/api/middleware
+- [ ] 1749. Add serialization round-trip tests for crates/api/middleware
+- [ ] 1750. Add proptest coverage for crates/api/middleware
+- [ ] 1751. Benchmark hot path in crates/api/middleware
+- [ ] 1752. Add docs examples for crates/api/middleware public API
+- [ ] 1753. Document module openapi in crates/api
+- [ ] 1754. Add rustdoc for public items in crates/api/openapi
+- [ ] 1755. Add unit tests for crates/api/openapi happy paths
+- [ ] 1756. Add unit tests for crates/api/openapi error paths
+- [ ] 1757. Add unit tests for crates/api/openapi boundary conditions
+- [ ] 1758. Review crates/api/openapi for hidden panics
+- [ ] 1759. Review crates/api/openapi for race conditions
+- [ ] 1760. Review crates/api/openapi for resource leaks
+- [ ] 1761. Review crates/api/openapi for integer overflow
+- [ ] 1762. Review crates/api/openapi for timing side channels
+- [ ] 1763. Add clippy-clean build for crates/api/openapi
+- [ ] 1764. Add serialization round-trip tests for crates/api/openapi
+- [ ] 1765. Add proptest coverage for crates/api/openapi
+- [ ] 1766. Benchmark hot path in crates/api/openapi
+- [ ] 1767. Add docs examples for crates/api/openapi public API
+- [ ] 1768. Document module errors in crates/api
+- [ ] 1769. Add rustdoc for public items in crates/api/errors
+- [ ] 1770. Add unit tests for crates/api/errors happy paths
+- [ ] 1771. Add unit tests for crates/api/errors error paths
+- [ ] 1772. Add unit tests for crates/api/errors boundary conditions
+- [ ] 1773. Review crates/api/errors for hidden panics
+- [ ] 1774. Review crates/api/errors for race conditions
+- [ ] 1775. Review crates/api/errors for resource leaks
+- [ ] 1776. Review crates/api/errors for integer overflow
+- [ ] 1777. Review crates/api/errors for timing side channels
+- [ ] 1778. Add clippy-clean build for crates/api/errors
+- [ ] 1779. Add serialization round-trip tests for crates/api/errors
+- [ ] 1780. Add proptest coverage for crates/api/errors
+- [ ] 1781. Benchmark hot path in crates/api/errors
+- [ ] 1782. Add docs examples for crates/api/errors public API
+- [ ] 1783. Document module scheme in crates/fhe
+- [ ] 1784. Add rustdoc for public items in crates/fhe/scheme
+- [ ] 1785. Add unit tests for crates/fhe/scheme happy paths
+- [ ] 1786. Add unit tests for crates/fhe/scheme error paths
+- [ ] 1787. Add unit tests for crates/fhe/scheme boundary conditions
+- [ ] 1788. Review crates/fhe/scheme for hidden panics
+- [ ] 1789. Review crates/fhe/scheme for race conditions
+- [ ] 1790. Review crates/fhe/scheme for resource leaks
+- [ ] 1791. Review crates/fhe/scheme for integer overflow
+- [ ] 1792. Review crates/fhe/scheme for timing side channels
+- [ ] 1793. Add clippy-clean build for crates/fhe/scheme
+- [ ] 1794. Add serialization round-trip tests for crates/fhe/scheme
+- [ ] 1795. Add proptest coverage for crates/fhe/scheme
+- [ ] 1796. Benchmark hot path in crates/fhe/scheme
+- [ ] 1797. Add docs examples for crates/fhe/scheme public API
+- [ ] 1798. Document module params in crates/fhe
+- [ ] 1799. Add rustdoc for public items in crates/fhe/params
+- [ ] 1800. Add unit tests for crates/fhe/params happy paths
+- [ ] 1801. Add unit tests for crates/fhe/params error paths
+- [ ] 1802. Add unit tests for crates/fhe/params boundary conditions
+- [ ] 1803. Review crates/fhe/params for hidden panics
+- [ ] 1804. Review crates/fhe/params for race conditions
+- [ ] 1805. Review crates/fhe/params for resource leaks
+- [ ] 1806. Review crates/fhe/params for integer overflow
+- [ ] 1807. Review crates/fhe/params for timing side channels
+- [ ] 1808. Add clippy-clean build for crates/fhe/params
+- [ ] 1809. Add serialization round-trip tests for crates/fhe/params
+- [ ] 1810. Add proptest coverage for crates/fhe/params
+- [ ] 1811. Benchmark hot path in crates/fhe/params
+- [ ] 1812. Add docs examples for crates/fhe/params public API
+- [ ] 1813. Document module ciphertext in crates/fhe
+- [ ] 1814. Add rustdoc for public items in crates/fhe/ciphertext
+- [ ] 1815. Add unit tests for crates/fhe/ciphertext happy paths
+- [ ] 1816. Add unit tests for crates/fhe/ciphertext error paths
+- [ ] 1817. Add unit tests for crates/fhe/ciphertext boundary conditions
+- [ ] 1818. Review crates/fhe/ciphertext for hidden panics
+- [ ] 1819. Review crates/fhe/ciphertext for race conditions
+- [ ] 1820. Review crates/fhe/ciphertext for resource leaks
+- [ ] 1821. Review crates/fhe/ciphertext for integer overflow
+- [ ] 1822. Review crates/fhe/ciphertext for timing side channels
+- [ ] 1823. Add clippy-clean build for crates/fhe/ciphertext
+- [ ] 1824. Add serialization round-trip tests for crates/fhe/ciphertext
+- [ ] 1825. Add proptest coverage for crates/fhe/ciphertext
+- [ ] 1826. Benchmark hot path in crates/fhe/ciphertext
+- [ ] 1827. Add docs examples for crates/fhe/ciphertext public API
+- [ ] 1828. Document module keys in crates/fhe
+- [ ] 1829. Add rustdoc for public items in crates/fhe/keys
+- [ ] 1830. Add unit tests for crates/fhe/keys happy paths
+- [ ] 1831. Add unit tests for crates/fhe/keys error paths
+- [ ] 1832. Add unit tests for crates/fhe/keys boundary conditions
+- [ ] 1833. Review crates/fhe/keys for hidden panics
+- [ ] 1834. Review crates/fhe/keys for race conditions
+- [ ] 1835. Review crates/fhe/keys for resource leaks
+- [ ] 1836. Review crates/fhe/keys for integer overflow
+- [ ] 1837. Review crates/fhe/keys for timing side channels
+- [ ] 1838. Add clippy-clean build for crates/fhe/keys
+- [ ] 1839. Add serialization round-trip tests for crates/fhe/keys
+- [ ] 1840. Add proptest coverage for crates/fhe/keys
+- [ ] 1841. Benchmark hot path in crates/fhe/keys
+- [ ] 1842. Add docs examples for crates/fhe/keys public API
+- [ ] 1843. Document module decryption in crates/fhe
+- [ ] 1844. Add rustdoc for public items in crates/fhe/decryption
+- [ ] 1845. Add unit tests for crates/fhe/decryption happy paths
+- [ ] 1846. Add unit tests for crates/fhe/decryption error paths
+- [ ] 1847. Add unit tests for crates/fhe/decryption boundary conditions
+- [ ] 1848. Review crates/fhe/decryption for hidden panics
+- [ ] 1849. Review crates/fhe/decryption for race conditions
+- [ ] 1850. Review crates/fhe/decryption for resource leaks
+- [ ] 1851. Review crates/fhe/decryption for integer overflow
+- [ ] 1852. Review crates/fhe/decryption for timing side channels
+- [ ] 1853. Add clippy-clean build for crates/fhe/decryption
+- [ ] 1854. Add serialization round-trip tests for crates/fhe/decryption
+- [ ] 1855. Add proptest coverage for crates/fhe/decryption
+- [ ] 1856. Benchmark hot path in crates/fhe/decryption
+- [ ] 1857. Add docs examples for crates/fhe/decryption public API
+- [ ] 1858. Document module noise in crates/fhe
+- [ ] 1859. Add rustdoc for public items in crates/fhe/noise
+- [ ] 1860. Add unit tests for crates/fhe/noise happy paths
+- [ ] 1861. Add unit tests for crates/fhe/noise error paths
+- [ ] 1862. Add unit tests for crates/fhe/noise boundary conditions
+- [ ] 1863. Review crates/fhe/noise for hidden panics
+- [ ] 1864. Review crates/fhe/noise for race conditions
+- [ ] 1865. Review crates/fhe/noise for resource leaks
+- [ ] 1866. Review crates/fhe/noise for integer overflow
+- [ ] 1867. Review crates/fhe/noise for timing side channels
+- [ ] 1868. Add clippy-clean build for crates/fhe/noise
+- [ ] 1869. Add serialization round-trip tests for crates/fhe/noise
+- [ ] 1870. Add proptest coverage for crates/fhe/noise
+- [ ] 1871. Benchmark hot path in crates/fhe/noise
+- [ ] 1872. Add docs examples for crates/fhe/noise public API
+- [ ] 1873. Document module session in crates/coordinator
+- [ ] 1874. Add rustdoc for public items in crates/coordinator/session
+- [ ] 1875. Add unit tests for crates/coordinator/session happy paths
+- [ ] 1876. Add unit tests for crates/coordinator/session error paths
+- [ ] 1877. Add unit tests for crates/coordinator/session boundary conditions
+- [ ] 1878. Review crates/coordinator/session for hidden panics
+- [ ] 1879. Review crates/coordinator/session for race conditions
+- [ ] 1880. Review crates/coordinator/session for resource leaks
+- [ ] 1881. Review crates/coordinator/session for integer overflow
+- [ ] 1882. Review crates/coordinator/session for timing side channels
+- [ ] 1883. Add clippy-clean build for crates/coordinator/session
+- [ ] 1884. Add serialization round-trip tests for crates/coordinator/session
+- [ ] 1885. Add proptest coverage for crates/coordinator/session
+- [ ] 1886. Benchmark hot path in crates/coordinator/session
+- [ ] 1887. Add docs examples for crates/coordinator/session public API
+- [ ] 1888. Document module audit in crates/coordinator
+- [ ] 1889. Add rustdoc for public items in crates/coordinator/audit
+- [ ] 1890. Add unit tests for crates/coordinator/audit happy paths
+- [ ] 1891. Add unit tests for crates/coordinator/audit error paths
+- [ ] 1892. Add unit tests for crates/coordinator/audit boundary conditions
+- [ ] 1893. Review crates/coordinator/audit for hidden panics
+- [ ] 1894. Review crates/coordinator/audit for race conditions
+- [ ] 1895. Review crates/coordinator/audit for resource leaks
+- [ ] 1896. Review crates/coordinator/audit for integer overflow
+- [ ] 1897. Review crates/coordinator/audit for timing side channels
+- [ ] 1898. Add clippy-clean build for crates/coordinator/audit
+- [ ] 1899. Add serialization round-trip tests for crates/coordinator/audit
+- [ ] 1900. Add proptest coverage for crates/coordinator/audit
+- [ ] 1901. Benchmark hot path in crates/coordinator/audit
+- [ ] 1902. Add docs examples for crates/coordinator/audit public API
+- [ ] 1903. Document module policy in crates/coordinator
+- [ ] 1904. Add rustdoc for public items in crates/coordinator/policy
+- [ ] 1905. Add unit tests for crates/coordinator/policy happy paths
+- [ ] 1906. Add unit tests for crates/coordinator/policy error paths
+- [ ] 1907. Add unit tests for crates/coordinator/policy boundary conditions
+- [ ] 1908. Review crates/coordinator/policy for hidden panics
+- [ ] 1909. Review crates/coordinator/policy for race conditions
+- [ ] 1910. Review crates/coordinator/policy for resource leaks
+- [ ] 1911. Review crates/coordinator/policy for integer overflow
+- [ ] 1912. Review crates/coordinator/policy for timing side channels
+- [ ] 1913. Add clippy-clean build for crates/coordinator/policy
+- [ ] 1914. Add serialization round-trip tests for crates/coordinator/policy
+- [ ] 1915. Add proptest coverage for crates/coordinator/policy
+- [ ] 1916. Benchmark hot path in crates/coordinator/policy
+- [ ] 1917. Add docs examples for crates/coordinator/policy public API
+- [ ] 1918. Document module lifecycle in crates/coordinator
+- [ ] 1919. Add rustdoc for public items in crates/coordinator/lifecycle
+- [ ] 1920. Add unit tests for crates/coordinator/lifecycle happy paths
+- [ ] 1921. Add unit tests for crates/coordinator/lifecycle error paths
+- [ ] 1922. Add unit tests for crates/coordinator/lifecycle boundary conditions
+- [ ] 1923. Review crates/coordinator/lifecycle for hidden panics
+- [ ] 1924. Review crates/coordinator/lifecycle for race conditions
+- [ ] 1925. Review crates/coordinator/lifecycle for resource leaks
+- [ ] 1926. Review crates/coordinator/lifecycle for integer overflow
+- [ ] 1927. Review crates/coordinator/lifecycle for timing side channels
+- [ ] 1928. Add clippy-clean build for crates/coordinator/lifecycle
+- [ ] 1929. Add serialization round-trip tests for crates/coordinator/lifecycle
+- [ ] 1930. Add proptest coverage for crates/coordinator/lifecycle
+- [ ] 1931. Benchmark hot path in crates/coordinator/lifecycle
+- [ ] 1932. Add docs examples for crates/coordinator/lifecycle public API
+- [ ] 1933. Document module participant in crates/coordinator
+- [ ] 1934. Add rustdoc for public items in crates/coordinator/participant
+- [ ] 1935. Add unit tests for crates/coordinator/participant happy paths
+- [ ] 1936. Add unit tests for crates/coordinator/participant error paths
+- [ ] 1937. Add unit tests for crates/coordinator/participant boundary conditions
+- [ ] 1938. Review crates/coordinator/participant for hidden panics
+- [ ] 1939. Review crates/coordinator/participant for race conditions
+- [ ] 1940. Review crates/coordinator/participant for resource leaks
+- [ ] 1941. Review crates/coordinator/participant for integer overflow
+- [ ] 1942. Review crates/coordinator/participant for timing side channels
+- [ ] 1943. Add clippy-clean build for crates/coordinator/participant
+- [ ] 1944. Add serialization round-trip tests for crates/coordinator/participant
+- [ ] 1945. Add proptest coverage for crates/coordinator/participant
+- [ ] 1946. Benchmark hot path in crates/coordinator/participant
+- [ ] 1947. Add docs examples for crates/coordinator/participant public API
+- [ ] 1948. Document module execution in crates/coordinator
+- [ ] 1949. Add rustdoc for public items in crates/coordinator/execution
+- [ ] 1950. Add unit tests for crates/coordinator/execution happy paths
+- [ ] 1951. Add unit tests for crates/coordinator/execution error paths
+- [ ] 1952. Add unit tests for crates/coordinator/execution boundary conditions
+- [ ] 1953. Review crates/coordinator/execution for hidden panics
+- [ ] 1954. Review crates/coordinator/execution for race conditions
+- [ ] 1955. Review crates/coordinator/execution for resource leaks
+- [ ] 1956. Review crates/coordinator/execution for integer overflow
+- [ ] 1957. Review crates/coordinator/execution for timing side channels
+- [ ] 1958. Add clippy-clean build for crates/coordinator/execution
+- [ ] 1959. Add serialization round-trip tests for crates/coordinator/execution
+- [ ] 1960. Add proptest coverage for crates/coordinator/execution
+- [ ] 1961. Benchmark hot path in crates/coordinator/execution
+- [ ] 1962. Add docs examples for crates/coordinator/execution public API
+- [ ] 1963. Document module field in crates/crypto
+- [ ] 1964. Add rustdoc for public items in crates/crypto/field
+- [ ] 1965. Add unit tests for crates/crypto/field happy paths
+- [ ] 1966. Add unit tests for crates/crypto/field error paths
+- [ ] 1967. Add unit tests for crates/crypto/field boundary conditions
+- [ ] 1968. Review crates/crypto/field for hidden panics
+- [ ] 1969. Review crates/crypto/field for race conditions
+- [ ] 1970. Review crates/crypto/field for resource leaks
+- [ ] 1971. Review crates/crypto/field for integer overflow
+- [ ] 1972. Review crates/crypto/field for timing side channels
+- [ ] 1973. Add clippy-clean build for crates/crypto/field
+- [ ] 1974. Add serialization round-trip tests for crates/crypto/field
+- [ ] 1975. Add proptest coverage for crates/crypto/field
+- [ ] 1976. Benchmark hot path in crates/crypto/field
+- [ ] 1977. Add docs examples for crates/crypto/field public API
+- [ ] 1978. Document module mac in crates/crypto
+- [ ] 1979. Add rustdoc for public items in crates/crypto/mac
+- [ ] 1980. Add unit tests for crates/crypto/mac happy paths
+- [ ] 1981. Add unit tests for crates/crypto/mac error paths
+- [ ] 1982. Add unit tests for crates/crypto/mac boundary conditions
+- [ ] 1983. Review crates/crypto/mac for hidden panics
+- [ ] 1984. Review crates/crypto/mac for race conditions
+- [ ] 1985. Review crates/crypto/mac for resource leaks
+- [ ] 1986. Review crates/crypto/mac for integer overflow
+- [ ] 1987. Review crates/crypto/mac for timing side channels
+- [ ] 1988. Add clippy-clean build for crates/crypto/mac
+- [ ] 1989. Add serialization round-trip tests for crates/crypto/mac
+- [ ] 1990. Add proptest coverage for crates/crypto/mac
+- [ ] 1991. Benchmark hot path in crates/crypto/mac
+- [ ] 1992. Add docs examples for crates/crypto/mac public API
+- [ ] 1993. Document module sharing in crates/crypto
+- [ ] 1994. Add rustdoc for public items in crates/crypto/sharing
+- [ ] 1995. Add unit tests for crates/crypto/sharing happy paths
+- [ ] 1996. Add unit tests for crates/crypto/sharing error paths
+- [ ] 1997. Add unit tests for crates/crypto/sharing boundary conditions
+- [ ] 1998. Review crates/crypto/sharing for hidden panics
+- [ ] 1999. Review crates/crypto/sharing for race conditions
+- [ ] 2000. Review crates/crypto/sharing for resource leaks
+- [ ] 2001. Review crates/crypto/sharing for integer overflow
+- [ ] 2002. Review crates/crypto/sharing for timing side channels
+- [ ] 2003. Add clippy-clean build for crates/crypto/sharing
+- [ ] 2004. Add serialization round-trip tests for crates/crypto/sharing
+- [ ] 2005. Add proptest coverage for crates/crypto/sharing
+- [ ] 2006. Benchmark hot path in crates/crypto/sharing
+- [ ] 2007. Add docs examples for crates/crypto/sharing public API
+- [ ] 2008. Document module prss in crates/crypto
+- [ ] 2009. Add rustdoc for public items in crates/crypto/prss
+- [ ] 2010. Add unit tests for crates/crypto/prss happy paths
+- [ ] 2011. Add unit tests for crates/crypto/prss error paths
+- [ ] 2012. Add unit tests for crates/crypto/prss boundary conditions
+- [ ] 2013. Review crates/crypto/prss for hidden panics
+- [ ] 2014. Review crates/crypto/prss for race conditions
+- [ ] 2015. Review crates/crypto/prss for resource leaks
+- [ ] 2016. Review crates/crypto/prss for integer overflow
+- [ ] 2017. Review crates/crypto/prss for timing side channels
+- [ ] 2018. Add clippy-clean build for crates/crypto/prss
+- [ ] 2019. Add serialization round-trip tests for crates/crypto/prss
+- [ ] 2020. Add proptest coverage for crates/crypto/prss
+- [ ] 2021. Benchmark hot path in crates/crypto/prss
+- [ ] 2022. Add docs examples for crates/crypto/prss public API
+- [ ] 2023. Document module traits in crates/crypto
+- [ ] 2024. Add rustdoc for public items in crates/crypto/traits
+- [ ] 2025. Add unit tests for crates/crypto/traits happy paths
+- [ ] 2026. Add unit tests for crates/crypto/traits error paths
+- [ ] 2027. Add unit tests for crates/crypto/traits boundary conditions
+- [ ] 2028. Review crates/crypto/traits for hidden panics
+- [ ] 2029. Review crates/crypto/traits for race conditions
+- [ ] 2030. Review crates/crypto/traits for resource leaks
+- [ ] 2031. Review crates/crypto/traits for integer overflow
+- [ ] 2032. Review crates/crypto/traits for timing side channels
+- [ ] 2033. Add clippy-clean build for crates/crypto/traits
+- [ ] 2034. Add serialization round-trip tests for crates/crypto/traits
+- [ ] 2035. Add proptest coverage for crates/crypto/traits
+- [ ] 2036. Benchmark hot path in crates/crypto/traits
+- [ ] 2037. Add docs examples for crates/crypto/traits public API
+- [ ] 2038. Document module hash in crates/crypto
+- [ ] 2039. Add rustdoc for public items in crates/crypto/hash
+- [ ] 2040. Add unit tests for crates/crypto/hash happy paths
+- [ ] 2041. Add unit tests for crates/crypto/hash error paths
+- [ ] 2042. Add unit tests for crates/crypto/hash boundary conditions
+- [ ] 2043. Review crates/crypto/hash for hidden panics
+- [ ] 2044. Review crates/crypto/hash for race conditions
+- [ ] 2045. Review crates/crypto/hash for resource leaks
+- [ ] 2046. Review crates/crypto/hash for integer overflow
+- [ ] 2047. Review crates/crypto/hash for timing side channels
+- [ ] 2048. Add clippy-clean build for crates/crypto/hash
+- [ ] 2049. Add serialization round-trip tests for crates/crypto/hash
+- [ ] 2050. Add proptest coverage for crates/crypto/hash
+- [ ] 2051. Benchmark hot path in crates/crypto/hash
+- [ ] 2052. Add docs examples for crates/crypto/hash public API
+- [ ] 2053. Document module signature in crates/crypto
+- [ ] 2054. Add rustdoc for public items in crates/crypto/signature
+- [ ] 2055. Add unit tests for crates/crypto/signature happy paths
+- [ ] 2056. Add unit tests for crates/crypto/signature error paths
+- [ ] 2057. Add unit tests for crates/crypto/signature boundary conditions
+- [ ] 2058. Review crates/crypto/signature for hidden panics
+- [ ] 2059. Review crates/crypto/signature for race conditions
+- [ ] 2060. Review crates/crypto/signature for resource leaks
+- [ ] 2061. Review crates/crypto/signature for integer overflow
+- [ ] 2062. Review crates/crypto/signature for timing side channels
+- [ ] 2063. Add clippy-clean build for crates/crypto/signature
+- [ ] 2064. Add serialization round-trip tests for crates/crypto/signature
+- [ ] 2065. Add proptest coverage for crates/crypto/signature
+- [ ] 2066. Benchmark hot path in crates/crypto/signature
+- [ ] 2067. Add docs examples for crates/crypto/signature public API
+- [ ] 2068. Document module commands in crates/cli
+- [ ] 2069. Add rustdoc for public items in crates/cli/commands
+- [ ] 2070. Add unit tests for crates/cli/commands happy paths
+- [ ] 2071. Add unit tests for crates/cli/commands error paths
+- [ ] 2072. Add unit tests for crates/cli/commands boundary conditions
+- [ ] 2073. Review crates/cli/commands for hidden panics
+- [ ] 2074. Review crates/cli/commands for race conditions
+- [ ] 2075. Review crates/cli/commands for resource leaks
+- [ ] 2076. Review crates/cli/commands for integer overflow
+- [ ] 2077. Review crates/cli/commands for timing side channels
+- [ ] 2078. Add clippy-clean build for crates/cli/commands
+- [ ] 2079. Add serialization round-trip tests for crates/cli/commands
+- [ ] 2080. Add proptest coverage for crates/cli/commands
+- [ ] 2081. Benchmark hot path in crates/cli/commands
+- [ ] 2082. Add docs examples for crates/cli/commands public API
+- [ ] 2083. Document module config in crates/cli
+- [ ] 2084. Add rustdoc for public items in crates/cli/config
+- [ ] 2085. Add unit tests for crates/cli/config happy paths
+- [ ] 2086. Add unit tests for crates/cli/config error paths
+- [ ] 2087. Add unit tests for crates/cli/config boundary conditions
+- [ ] 2088. Review crates/cli/config for hidden panics
+- [ ] 2089. Review crates/cli/config for race conditions
+- [ ] 2090. Review crates/cli/config for resource leaks
+- [ ] 2091. Review crates/cli/config for integer overflow
+- [ ] 2092. Review crates/cli/config for timing side channels
+- [ ] 2093. Add clippy-clean build for crates/cli/config
+- [ ] 2094. Add serialization round-trip tests for crates/cli/config
+- [ ] 2095. Add proptest coverage for crates/cli/config
+- [ ] 2096. Benchmark hot path in crates/cli/config
+- [ ] 2097. Add docs examples for crates/cli/config public API
+- [ ] 2098. Document module keygen in crates/cli
+- [ ] 2099. Add rustdoc for public items in crates/cli/keygen
+- [ ] 2100. Add unit tests for crates/cli/keygen happy paths
+- [ ] 2101. Add unit tests for crates/cli/keygen error paths
+- [ ] 2102. Add unit tests for crates/cli/keygen boundary conditions
+- [ ] 2103. Review crates/cli/keygen for hidden panics
+- [ ] 2104. Review crates/cli/keygen for race conditions
+- [ ] 2105. Review crates/cli/keygen for resource leaks
+- [ ] 2106. Review crates/cli/keygen for integer overflow
+- [ ] 2107. Review crates/cli/keygen for timing side channels
+- [ ] 2108. Add clippy-clean build for crates/cli/keygen
+- [ ] 2109. Add serialization round-trip tests for crates/cli/keygen
+- [ ] 2110. Add proptest coverage for crates/cli/keygen
+- [ ] 2111. Benchmark hot path in crates/cli/keygen
+- [ ] 2112. Add docs examples for crates/cli/keygen public API
+- [ ] 2113. Document module server in crates/cli
+- [ ] 2114. Add rustdoc for public items in crates/cli/server
+- [ ] 2115. Add unit tests for crates/cli/server happy paths
+- [ ] 2116. Add unit tests for crates/cli/server error paths
+- [ ] 2117. Add unit tests for crates/cli/server boundary conditions
+- [ ] 2118. Review crates/cli/server for hidden panics
+- [ ] 2119. Review crates/cli/server for race conditions
+- [ ] 2120. Review crates/cli/server for resource leaks
+- [ ] 2121. Review crates/cli/server for integer overflow
+- [ ] 2122. Review crates/cli/server for timing side channels
+- [ ] 2123. Add clippy-clean build for crates/cli/server
+- [ ] 2124. Add serialization round-trip tests for crates/cli/server
+- [ ] 2125. Add proptest coverage for crates/cli/server
+- [ ] 2126. Benchmark hot path in crates/cli/server
+- [ ] 2127. Add docs examples for crates/cli/server public API
+- [ ] 2128. Document module bench in crates/cli
+- [ ] 2129. Add rustdoc for public items in crates/cli/bench
+- [ ] 2130. Add unit tests for crates/cli/bench happy paths
+- [ ] 2131. Add unit tests for crates/cli/bench error paths
+- [ ] 2132. Add unit tests for crates/cli/bench boundary conditions
+- [ ] 2133. Review crates/cli/bench for hidden panics
+- [ ] 2134. Review crates/cli/bench for race conditions
+- [ ] 2135. Review crates/cli/bench for resource leaks
+- [ ] 2136. Review crates/cli/bench for integer overflow
+- [ ] 2137. Review crates/cli/bench for timing side channels
+- [ ] 2138. Add clippy-clean build for crates/cli/bench
+- [ ] 2139. Add serialization round-trip tests for crates/cli/bench
+- [ ] 2140. Add proptest coverage for crates/cli/bench
+- [ ] 2141. Benchmark hot path in crates/cli/bench
+- [ ] 2142. Add docs examples for crates/cli/bench public API
+- [ ] 2143. Document module completions in crates/cli
+- [ ] 2144. Add rustdoc for public items in crates/cli/completions
+- [ ] 2145. Add unit tests for crates/cli/completions happy paths
+- [ ] 2146. Add unit tests for crates/cli/completions error paths
+- [ ] 2147. Add unit tests for crates/cli/completions boundary conditions
+- [ ] 2148. Review crates/cli/completions for hidden panics
+- [ ] 2149. Review crates/cli/completions for race conditions
+- [ ] 2150. Review crates/cli/completions for resource leaks
+- [ ] 2151. Review crates/cli/completions for integer overflow
+- [ ] 2152. Review crates/cli/completions for timing side channels
+- [ ] 2153. Add clippy-clean build for crates/cli/completions
+- [ ] 2154. Add serialization round-trip tests for crates/cli/completions
+- [ ] 2155. Add proptest coverage for crates/cli/completions
+- [ ] 2156. Benchmark hot path in crates/cli/completions
+- [ ] 2157. Add docs examples for crates/cli/completions public API
+
+## 27. Cross-product Matrix: Transport x Protocol Phases
+
+- [ ] 2158. Verify key_agreement works over InMemory transport
+- [ ] 2159. Test key_agreement timeout behavior over InMemory
+- [ ] 2160. Test key_agreement retry behavior over InMemory
+- [ ] 2161. Benchmark key_agreement over InMemory
+- [ ] 2162. Log key_agreement lifecycle events over InMemory
+- [ ] 2163. Add integration test for key_agreement over InMemory
+- [ ] 2164. Add failure-injection test for key_agreement over InMemory
+- [ ] 2165. Document key_agreement guarantees over InMemory
+- [ ] 2166. Verify run_offline works over InMemory transport
+- [ ] 2167. Test run_offline timeout behavior over InMemory
+- [ ] 2168. Test run_offline retry behavior over InMemory
+- [ ] 2169. Benchmark run_offline over InMemory
+- [ ] 2170. Log run_offline lifecycle events over InMemory
+- [ ] 2171. Add integration test for run_offline over InMemory
+- [ ] 2172. Add failure-injection test for run_offline over InMemory
+- [ ] 2173. Document run_offline guarantees over InMemory
+- [ ] 2174. Verify share_inputs works over InMemory transport
+- [ ] 2175. Test share_inputs timeout behavior over InMemory
+- [ ] 2176. Test share_inputs retry behavior over InMemory
+- [ ] 2177. Benchmark share_inputs over InMemory
+- [ ] 2178. Log share_inputs lifecycle events over InMemory
+- [ ] 2179. Add integration test for share_inputs over InMemory
+- [ ] 2180. Add failure-injection test for share_inputs over InMemory
+- [ ] 2181. Document share_inputs guarantees over InMemory
+- [ ] 2182. Verify run_online works over InMemory transport
+- [ ] 2183. Test run_online timeout behavior over InMemory
+- [ ] 2184. Test run_online retry behavior over InMemory
+- [ ] 2185. Benchmark run_online over InMemory
+- [ ] 2186. Log run_online lifecycle events over InMemory
+- [ ] 2187. Add integration test for run_online over InMemory
+- [ ] 2188. Add failure-injection test for run_online over InMemory
+- [ ] 2189. Document run_online guarantees over InMemory
+- [ ] 2190. Verify reconstruct_outputs works over InMemory transport
+- [ ] 2191. Test reconstruct_outputs timeout behavior over InMemory
+- [ ] 2192. Test reconstruct_outputs retry behavior over InMemory
+- [ ] 2193. Benchmark reconstruct_outputs over InMemory
+- [ ] 2194. Log reconstruct_outputs lifecycle events over InMemory
+- [ ] 2195. Add integration test for reconstruct_outputs over InMemory
+- [ ] 2196. Add failure-injection test for reconstruct_outputs over InMemory
+- [ ] 2197. Document reconstruct_outputs guarantees over InMemory
+- [ ] 2198. Verify key_agreement works over Tcp transport
+- [ ] 2199. Test key_agreement timeout behavior over Tcp
+- [ ] 2200. Test key_agreement retry behavior over Tcp
+- [ ] 2201. Benchmark key_agreement over Tcp
+- [ ] 2202. Log key_agreement lifecycle events over Tcp
+- [ ] 2203. Add integration test for key_agreement over Tcp
+- [ ] 2204. Add failure-injection test for key_agreement over Tcp
+- [ ] 2205. Document key_agreement guarantees over Tcp
+- [ ] 2206. Verify run_offline works over Tcp transport
+- [ ] 2207. Test run_offline timeout behavior over Tcp
+- [ ] 2208. Test run_offline retry behavior over Tcp
+- [ ] 2209. Benchmark run_offline over Tcp
+- [ ] 2210. Log run_offline lifecycle events over Tcp
+- [ ] 2211. Add integration test for run_offline over Tcp
+- [ ] 2212. Add failure-injection test for run_offline over Tcp
+- [ ] 2213. Document run_offline guarantees over Tcp
+- [ ] 2214. Verify share_inputs works over Tcp transport
+- [ ] 2215. Test share_inputs timeout behavior over Tcp
+- [ ] 2216. Test share_inputs retry behavior over Tcp
+- [ ] 2217. Benchmark share_inputs over Tcp
+- [ ] 2218. Log share_inputs lifecycle events over Tcp
+- [ ] 2219. Add integration test for share_inputs over Tcp
+- [ ] 2220. Add failure-injection test for share_inputs over Tcp
+- [ ] 2221. Document share_inputs guarantees over Tcp
+- [ ] 2222. Verify run_online works over Tcp transport
+- [ ] 2223. Test run_online timeout behavior over Tcp
+- [ ] 2224. Test run_online retry behavior over Tcp
+- [ ] 2225. Benchmark run_online over Tcp
+- [ ] 2226. Log run_online lifecycle events over Tcp
+- [ ] 2227. Add integration test for run_online over Tcp
+- [ ] 2228. Add failure-injection test for run_online over Tcp
+- [ ] 2229. Document run_online guarantees over Tcp
+- [ ] 2230. Verify reconstruct_outputs works over Tcp transport
+- [ ] 2231. Test reconstruct_outputs timeout behavior over Tcp
+- [ ] 2232. Test reconstruct_outputs retry behavior over Tcp
+- [ ] 2233. Benchmark reconstruct_outputs over Tcp
+- [ ] 2234. Log reconstruct_outputs lifecycle events over Tcp
+- [ ] 2235. Add integration test for reconstruct_outputs over Tcp
+- [ ] 2236. Add failure-injection test for reconstruct_outputs over Tcp
+- [ ] 2237. Document reconstruct_outputs guarantees over Tcp
+- [ ] 2238. Verify key_agreement works over TlsTcp transport
+- [ ] 2239. Test key_agreement timeout behavior over TlsTcp
+- [ ] 2240. Test key_agreement retry behavior over TlsTcp
+- [ ] 2241. Benchmark key_agreement over TlsTcp
+- [ ] 2242. Log key_agreement lifecycle events over TlsTcp
+- [ ] 2243. Add integration test for key_agreement over TlsTcp
+- [ ] 2244. Add failure-injection test for key_agreement over TlsTcp
+- [ ] 2245. Document key_agreement guarantees over TlsTcp
+- [ ] 2246. Verify run_offline works over TlsTcp transport
+- [ ] 2247. Test run_offline timeout behavior over TlsTcp
+- [ ] 2248. Test run_offline retry behavior over TlsTcp
+- [ ] 2249. Benchmark run_offline over TlsTcp
+- [ ] 2250. Log run_offline lifecycle events over TlsTcp
+- [ ] 2251. Add integration test for run_offline over TlsTcp
+- [ ] 2252. Add failure-injection test for run_offline over TlsTcp
+- [ ] 2253. Document run_offline guarantees over TlsTcp
+- [ ] 2254. Verify share_inputs works over TlsTcp transport
+- [ ] 2255. Test share_inputs timeout behavior over TlsTcp
+- [ ] 2256. Test share_inputs retry behavior over TlsTcp
+- [ ] 2257. Benchmark share_inputs over TlsTcp
+- [ ] 2258. Log share_inputs lifecycle events over TlsTcp
+- [ ] 2259. Add integration test for share_inputs over TlsTcp
+- [ ] 2260. Add failure-injection test for share_inputs over TlsTcp
+- [ ] 2261. Document share_inputs guarantees over TlsTcp
+- [ ] 2262. Verify run_online works over TlsTcp transport
+- [ ] 2263. Test run_online timeout behavior over TlsTcp
+- [ ] 2264. Test run_online retry behavior over TlsTcp
+- [ ] 2265. Benchmark run_online over TlsTcp
+- [ ] 2266. Log run_online lifecycle events over TlsTcp
+- [ ] 2267. Add integration test for run_online over TlsTcp
+- [ ] 2268. Add failure-injection test for run_online over TlsTcp
+- [ ] 2269. Document run_online guarantees over TlsTcp
+- [ ] 2270. Verify reconstruct_outputs works over TlsTcp transport
+- [ ] 2271. Test reconstruct_outputs timeout behavior over TlsTcp
+- [ ] 2272. Test reconstruct_outputs retry behavior over TlsTcp
+- [ ] 2273. Benchmark reconstruct_outputs over TlsTcp
+- [ ] 2274. Log reconstruct_outputs lifecycle events over TlsTcp
+- [ ] 2275. Add integration test for reconstruct_outputs over TlsTcp
+- [ ] 2276. Add failure-injection test for reconstruct_outputs over TlsTcp
+- [ ] 2277. Document reconstruct_outputs guarantees over TlsTcp
+- [ ] 2278. Verify key_agreement works over WebSocket transport
+- [ ] 2279. Test key_agreement timeout behavior over WebSocket
+- [ ] 2280. Test key_agreement retry behavior over WebSocket
+- [ ] 2281. Benchmark key_agreement over WebSocket
+- [ ] 2282. Log key_agreement lifecycle events over WebSocket
+- [ ] 2283. Add integration test for key_agreement over WebSocket
+- [ ] 2284. Add failure-injection test for key_agreement over WebSocket
+- [ ] 2285. Document key_agreement guarantees over WebSocket
+- [ ] 2286. Verify run_offline works over WebSocket transport
+- [ ] 2287. Test run_offline timeout behavior over WebSocket
+- [ ] 2288. Test run_offline retry behavior over WebSocket
+- [ ] 2289. Benchmark run_offline over WebSocket
+- [ ] 2290. Log run_offline lifecycle events over WebSocket
+- [ ] 2291. Add integration test for run_offline over WebSocket
+- [ ] 2292. Add failure-injection test for run_offline over WebSocket
+- [ ] 2293. Document run_offline guarantees over WebSocket
+- [ ] 2294. Verify share_inputs works over WebSocket transport
+- [ ] 2295. Test share_inputs timeout behavior over WebSocket
+- [ ] 2296. Test share_inputs retry behavior over WebSocket
+- [ ] 2297. Benchmark share_inputs over WebSocket
+- [ ] 2298. Log share_inputs lifecycle events over WebSocket
+- [ ] 2299. Add integration test for share_inputs over WebSocket
+- [ ] 2300. Add failure-injection test for share_inputs over WebSocket
+- [ ] 2301. Document share_inputs guarantees over WebSocket
+- [ ] 2302. Verify run_online works over WebSocket transport
+- [ ] 2303. Test run_online timeout behavior over WebSocket
+- [ ] 2304. Test run_online retry behavior over WebSocket
+- [ ] 2305. Benchmark run_online over WebSocket
+- [ ] 2306. Log run_online lifecycle events over WebSocket
+- [ ] 2307. Add integration test for run_online over WebSocket
+- [ ] 2308. Add failure-injection test for run_online over WebSocket
+- [ ] 2309. Document run_online guarantees over WebSocket
+- [ ] 2310. Verify reconstruct_outputs works over WebSocket transport
+- [ ] 2311. Test reconstruct_outputs timeout behavior over WebSocket
+- [ ] 2312. Test reconstruct_outputs retry behavior over WebSocket
+- [ ] 2313. Benchmark reconstruct_outputs over WebSocket
+- [ ] 2314. Log reconstruct_outputs lifecycle events over WebSocket
+- [ ] 2315. Add integration test for reconstruct_outputs over WebSocket
+- [ ] 2316. Add failure-injection test for reconstruct_outputs over WebSocket
+- [ ] 2317. Document reconstruct_outputs guarantees over WebSocket
+- [ ] 2318. Verify key_agreement works over Quic transport
+- [ ] 2319. Test key_agreement timeout behavior over Quic
+- [ ] 2320. Test key_agreement retry behavior over Quic
+- [ ] 2321. Benchmark key_agreement over Quic
+- [ ] 2322. Log key_agreement lifecycle events over Quic
+- [ ] 2323. Add integration test for key_agreement over Quic
+- [ ] 2324. Add failure-injection test for key_agreement over Quic
+- [ ] 2325. Document key_agreement guarantees over Quic
+- [ ] 2326. Verify run_offline works over Quic transport
+- [ ] 2327. Test run_offline timeout behavior over Quic
+- [ ] 2328. Test run_offline retry behavior over Quic
+- [ ] 2329. Benchmark run_offline over Quic
+- [ ] 2330. Log run_offline lifecycle events over Quic
+- [ ] 2331. Add integration test for run_offline over Quic
+- [ ] 2332. Add failure-injection test for run_offline over Quic
+- [ ] 2333. Document run_offline guarantees over Quic
+- [ ] 2334. Verify share_inputs works over Quic transport
+- [ ] 2335. Test share_inputs timeout behavior over Quic
+- [ ] 2336. Test share_inputs retry behavior over Quic
+- [ ] 2337. Benchmark share_inputs over Quic
+- [ ] 2338. Log share_inputs lifecycle events over Quic
+- [ ] 2339. Add integration test for share_inputs over Quic
+- [ ] 2340. Add failure-injection test for share_inputs over Quic
+- [ ] 2341. Document share_inputs guarantees over Quic
+- [ ] 2342. Verify run_online works over Quic transport
+- [ ] 2343. Test run_online timeout behavior over Quic
+- [ ] 2344. Test run_online retry behavior over Quic
+- [ ] 2345. Benchmark run_online over Quic
+- [ ] 2346. Log run_online lifecycle events over Quic
+- [ ] 2347. Add integration test for run_online over Quic
+- [ ] 2348. Add failure-injection test for run_online over Quic
+- [ ] 2349. Document run_online guarantees over Quic
+- [ ] 2350. Verify reconstruct_outputs works over Quic transport
+- [ ] 2351. Test reconstruct_outputs timeout behavior over Quic
+- [ ] 2352. Test reconstruct_outputs retry behavior over Quic
+- [ ] 2353. Benchmark reconstruct_outputs over Quic
+- [ ] 2354. Log reconstruct_outputs lifecycle events over Quic
+- [ ] 2355. Add integration test for reconstruct_outputs over Quic
+- [ ] 2356. Add failure-injection test for reconstruct_outputs over Quic
+- [ ] 2357. Document reconstruct_outputs guarantees over Quic
+
+## 28. Cross-product Matrix: Gate Type x Party Count
+
+- [ ] 2358. Test Input gate with 2 parties
+- [ ] 2359. Verify MAC consistency for Input with 2 parties
+- [ ] 2360. Verify share reconstruction for Input with 2 parties
+- [ ] 2361. Benchmark Input with 2 parties
+- [ ] 2362. Test Input gate with 3 parties
+- [ ] 2363. Verify MAC consistency for Input with 3 parties
+- [ ] 2364. Verify share reconstruction for Input with 3 parties
+- [ ] 2365. Benchmark Input with 3 parties
+- [ ] 2366. Test Input gate with 5 parties
+- [ ] 2367. Verify MAC consistency for Input with 5 parties
+- [ ] 2368. Verify share reconstruction for Input with 5 parties
+- [ ] 2369. Benchmark Input with 5 parties
+- [ ] 2370. Test Input gate with 10 parties
+- [ ] 2371. Verify MAC consistency for Input with 10 parties
+- [ ] 2372. Verify share reconstruction for Input with 10 parties
+- [ ] 2373. Benchmark Input with 10 parties
+- [ ] 2374. Test Input gate with 16 parties
+- [ ] 2375. Verify MAC consistency for Input with 16 parties
+- [ ] 2376. Verify share reconstruction for Input with 16 parties
+- [ ] 2377. Benchmark Input with 16 parties
+- [ ] 2378. Test Input gate with 32 parties
+- [ ] 2379. Verify MAC consistency for Input with 32 parties
+- [ ] 2380. Verify share reconstruction for Input with 32 parties
+- [ ] 2381. Benchmark Input with 32 parties
+- [ ] 2382. Test Const gate with 2 parties
+- [ ] 2383. Verify MAC consistency for Const with 2 parties
+- [ ] 2384. Verify share reconstruction for Const with 2 parties
+- [ ] 2385. Benchmark Const with 2 parties
+- [ ] 2386. Test Const gate with 3 parties
+- [ ] 2387. Verify MAC consistency for Const with 3 parties
+- [ ] 2388. Verify share reconstruction for Const with 3 parties
+- [ ] 2389. Benchmark Const with 3 parties
+- [ ] 2390. Test Const gate with 5 parties
+- [ ] 2391. Verify MAC consistency for Const with 5 parties
+- [ ] 2392. Verify share reconstruction for Const with 5 parties
+- [ ] 2393. Benchmark Const with 5 parties
+- [ ] 2394. Test Const gate with 10 parties
+- [ ] 2395. Verify MAC consistency for Const with 10 parties
+- [ ] 2396. Verify share reconstruction for Const with 10 parties
+- [ ] 2397. Benchmark Const with 10 parties
+- [ ] 2398. Test Const gate with 16 parties
+- [ ] 2399. Verify MAC consistency for Const with 16 parties
+- [ ] 2400. Verify share reconstruction for Const with 16 parties
+- [ ] 2401. Benchmark Const with 16 parties
+- [ ] 2402. Test Const gate with 32 parties
+- [ ] 2403. Verify MAC consistency for Const with 32 parties
+- [ ] 2404. Verify share reconstruction for Const with 32 parties
+- [ ] 2405. Benchmark Const with 32 parties
+- [ ] 2406. Test Add gate with 2 parties
+- [ ] 2407. Verify MAC consistency for Add with 2 parties
+- [ ] 2408. Verify share reconstruction for Add with 2 parties
+- [ ] 2409. Benchmark Add with 2 parties
+- [ ] 2410. Test Add gate with 3 parties
+- [ ] 2411. Verify MAC consistency for Add with 3 parties
+- [ ] 2412. Verify share reconstruction for Add with 3 parties
+- [ ] 2413. Benchmark Add with 3 parties
+- [ ] 2414. Test Add gate with 5 parties
+- [ ] 2415. Verify MAC consistency for Add with 5 parties
+- [ ] 2416. Verify share reconstruction for Add with 5 parties
+- [ ] 2417. Benchmark Add with 5 parties
+- [ ] 2418. Test Add gate with 10 parties
+- [ ] 2419. Verify MAC consistency for Add with 10 parties
+- [ ] 2420. Verify share reconstruction for Add with 10 parties
+- [ ] 2421. Benchmark Add with 10 parties
+- [ ] 2422. Test Add gate with 16 parties
+- [ ] 2423. Verify MAC consistency for Add with 16 parties
+- [ ] 2424. Verify share reconstruction for Add with 16 parties
+- [ ] 2425. Benchmark Add with 16 parties
+- [ ] 2426. Test Add gate with 32 parties
+- [ ] 2427. Verify MAC consistency for Add with 32 parties
+- [ ] 2428. Verify share reconstruction for Add with 32 parties
+- [ ] 2429. Benchmark Add with 32 parties
+- [ ] 2430. Test Sub gate with 2 parties
+- [ ] 2431. Verify MAC consistency for Sub with 2 parties
+- [ ] 2432. Verify share reconstruction for Sub with 2 parties
+- [ ] 2433. Benchmark Sub with 2 parties
+- [ ] 2434. Test Sub gate with 3 parties
+- [ ] 2435. Verify MAC consistency for Sub with 3 parties
+- [ ] 2436. Verify share reconstruction for Sub with 3 parties
+- [ ] 2437. Benchmark Sub with 3 parties
+- [ ] 2438. Test Sub gate with 5 parties
+- [ ] 2439. Verify MAC consistency for Sub with 5 parties
+- [ ] 2440. Verify share reconstruction for Sub with 5 parties
+- [ ] 2441. Benchmark Sub with 5 parties
+- [ ] 2442. Test Sub gate with 10 parties
+- [ ] 2443. Verify MAC consistency for Sub with 10 parties
+- [ ] 2444. Verify share reconstruction for Sub with 10 parties
+- [ ] 2445. Benchmark Sub with 10 parties
+- [ ] 2446. Test Sub gate with 16 parties
+- [ ] 2447. Verify MAC consistency for Sub with 16 parties
+- [ ] 2448. Verify share reconstruction for Sub with 16 parties
+- [ ] 2449. Benchmark Sub with 16 parties
+- [ ] 2450. Test Sub gate with 32 parties
+- [ ] 2451. Verify MAC consistency for Sub with 32 parties
+- [ ] 2452. Verify share reconstruction for Sub with 32 parties
+- [ ] 2453. Benchmark Sub with 32 parties
+- [ ] 2454. Test Mul gate with 2 parties
+- [ ] 2455. Verify MAC consistency for Mul with 2 parties
+- [ ] 2456. Verify share reconstruction for Mul with 2 parties
+- [ ] 2457. Benchmark Mul with 2 parties
+- [ ] 2458. Test Mul gate with 3 parties
+- [ ] 2459. Verify MAC consistency for Mul with 3 parties
+- [ ] 2460. Verify share reconstruction for Mul with 3 parties
+- [ ] 2461. Benchmark Mul with 3 parties
+- [ ] 2462. Test Mul gate with 5 parties
+- [ ] 2463. Verify MAC consistency for Mul with 5 parties
+- [ ] 2464. Verify share reconstruction for Mul with 5 parties
+- [ ] 2465. Benchmark Mul with 5 parties
+- [ ] 2466. Test Mul gate with 10 parties
+- [ ] 2467. Verify MAC consistency for Mul with 10 parties
+- [ ] 2468. Verify share reconstruction for Mul with 10 parties
+- [ ] 2469. Benchmark Mul with 10 parties
+- [ ] 2470. Test Mul gate with 16 parties
+- [ ] 2471. Verify MAC consistency for Mul with 16 parties
+- [ ] 2472. Verify share reconstruction for Mul with 16 parties
+- [ ] 2473. Benchmark Mul with 16 parties
+- [ ] 2474. Test Mul gate with 32 parties
+- [ ] 2475. Verify MAC consistency for Mul with 32 parties
+- [ ] 2476. Verify share reconstruction for Mul with 32 parties
+- [ ] 2477. Benchmark Mul with 32 parties
+- [ ] 2478. Test ScalarMul gate with 2 parties
+- [ ] 2479. Verify MAC consistency for ScalarMul with 2 parties
+- [ ] 2480. Verify share reconstruction for ScalarMul with 2 parties
+- [ ] 2481. Benchmark ScalarMul with 2 parties
+- [ ] 2482. Test ScalarMul gate with 3 parties
+- [ ] 2483. Verify MAC consistency for ScalarMul with 3 parties
+- [ ] 2484. Verify share reconstruction for ScalarMul with 3 parties
+- [ ] 2485. Benchmark ScalarMul with 3 parties
+- [ ] 2486. Test ScalarMul gate with 5 parties
+- [ ] 2487. Verify MAC consistency for ScalarMul with 5 parties
+- [ ] 2488. Verify share reconstruction for ScalarMul with 5 parties
+- [ ] 2489. Benchmark ScalarMul with 5 parties
+- [ ] 2490. Test ScalarMul gate with 10 parties
+- [ ] 2491. Verify MAC consistency for ScalarMul with 10 parties
+- [ ] 2492. Verify share reconstruction for ScalarMul with 10 parties
+- [ ] 2493. Benchmark ScalarMul with 10 parties
+- [ ] 2494. Test ScalarMul gate with 16 parties
+- [ ] 2495. Verify MAC consistency for ScalarMul with 16 parties
+- [ ] 2496. Verify share reconstruction for ScalarMul with 16 parties
+- [ ] 2497. Benchmark ScalarMul with 16 parties
+- [ ] 2498. Test ScalarMul gate with 32 parties
+- [ ] 2499. Verify MAC consistency for ScalarMul with 32 parties
+- [ ] 2500. Verify share reconstruction for ScalarMul with 32 parties
+- [ ] 2501. Benchmark ScalarMul with 32 parties
+- [ ] 2502. Test Neg gate with 2 parties
+- [ ] 2503. Verify MAC consistency for Neg with 2 parties
+- [ ] 2504. Verify share reconstruction for Neg with 2 parties
+- [ ] 2505. Benchmark Neg with 2 parties
+- [ ] 2506. Test Neg gate with 3 parties
+- [ ] 2507. Verify MAC consistency for Neg with 3 parties
+- [ ] 2508. Verify share reconstruction for Neg with 3 parties
+- [ ] 2509. Benchmark Neg with 3 parties
+- [ ] 2510. Test Neg gate with 5 parties
+- [ ] 2511. Verify MAC consistency for Neg with 5 parties
+- [ ] 2512. Verify share reconstruction for Neg with 5 parties
+- [ ] 2513. Benchmark Neg with 5 parties
+- [ ] 2514. Test Neg gate with 10 parties
+- [ ] 2515. Verify MAC consistency for Neg with 10 parties
+- [ ] 2516. Verify share reconstruction for Neg with 10 parties
+- [ ] 2517. Benchmark Neg with 10 parties
+- [ ] 2518. Test Neg gate with 16 parties
+- [ ] 2519. Verify MAC consistency for Neg with 16 parties
+- [ ] 2520. Verify share reconstruction for Neg with 16 parties
+- [ ] 2521. Benchmark Neg with 16 parties
+- [ ] 2522. Test Neg gate with 32 parties
+- [ ] 2523. Verify MAC consistency for Neg with 32 parties
+- [ ] 2524. Verify share reconstruction for Neg with 32 parties
+- [ ] 2525. Benchmark Neg with 32 parties
+- [ ] 2526. Test Output gate with 2 parties
+- [ ] 2527. Verify MAC consistency for Output with 2 parties
+- [ ] 2528. Verify share reconstruction for Output with 2 parties
+- [ ] 2529. Benchmark Output with 2 parties
+- [ ] 2530. Test Output gate with 3 parties
+- [ ] 2531. Verify MAC consistency for Output with 3 parties
+- [ ] 2532. Verify share reconstruction for Output with 3 parties
+- [ ] 2533. Benchmark Output with 3 parties
+- [ ] 2534. Test Output gate with 5 parties
+- [ ] 2535. Verify MAC consistency for Output with 5 parties
+- [ ] 2536. Verify share reconstruction for Output with 5 parties
+- [ ] 2537. Benchmark Output with 5 parties
+- [ ] 2538. Test Output gate with 10 parties
+- [ ] 2539. Verify MAC consistency for Output with 10 parties
+- [ ] 2540. Verify share reconstruction for Output with 10 parties
+- [ ] 2541. Benchmark Output with 10 parties
+- [ ] 2542. Test Output gate with 16 parties
+- [ ] 2543. Verify MAC consistency for Output with 16 parties
+- [ ] 2544. Verify share reconstruction for Output with 16 parties
+- [ ] 2545. Benchmark Output with 16 parties
+- [ ] 2546. Test Output gate with 32 parties
+- [ ] 2547. Verify MAC consistency for Output with 32 parties
+- [ ] 2548. Verify share reconstruction for Output with 32 parties
+- [ ] 2549. Benchmark Output with 32 parties
+- [ ] 2550. Test Equal gate with 2 parties
+- [ ] 2551. Verify MAC consistency for Equal with 2 parties
+- [ ] 2552. Verify share reconstruction for Equal with 2 parties
+- [ ] 2553. Benchmark Equal with 2 parties
+- [ ] 2554. Test Equal gate with 3 parties
+- [ ] 2555. Verify MAC consistency for Equal with 3 parties
+- [ ] 2556. Verify share reconstruction for Equal with 3 parties
+- [ ] 2557. Benchmark Equal with 3 parties
+- [ ] 2558. Test Equal gate with 5 parties
+- [ ] 2559. Verify MAC consistency for Equal with 5 parties
+- [ ] 2560. Verify share reconstruction for Equal with 5 parties
+- [ ] 2561. Benchmark Equal with 5 parties
+- [ ] 2562. Test Equal gate with 10 parties
+- [ ] 2563. Verify MAC consistency for Equal with 10 parties
+- [ ] 2564. Verify share reconstruction for Equal with 10 parties
+- [ ] 2565. Benchmark Equal with 10 parties
+- [ ] 2566. Test Equal gate with 16 parties
+- [ ] 2567. Verify MAC consistency for Equal with 16 parties
+- [ ] 2568. Verify share reconstruction for Equal with 16 parties
+- [ ] 2569. Benchmark Equal with 16 parties
+- [ ] 2570. Test Equal gate with 32 parties
+- [ ] 2571. Verify MAC consistency for Equal with 32 parties
+- [ ] 2572. Verify share reconstruction for Equal with 32 parties
+- [ ] 2573. Benchmark Equal with 32 parties
+- [ ] 2574. Test GreaterThan gate with 2 parties
+- [ ] 2575. Verify MAC consistency for GreaterThan with 2 parties
+- [ ] 2576. Verify share reconstruction for GreaterThan with 2 parties
+- [ ] 2577. Benchmark GreaterThan with 2 parties
+- [ ] 2578. Test GreaterThan gate with 3 parties
+- [ ] 2579. Verify MAC consistency for GreaterThan with 3 parties
+- [ ] 2580. Verify share reconstruction for GreaterThan with 3 parties
+- [ ] 2581. Benchmark GreaterThan with 3 parties
+- [ ] 2582. Test GreaterThan gate with 5 parties
+- [ ] 2583. Verify MAC consistency for GreaterThan with 5 parties
+- [ ] 2584. Verify share reconstruction for GreaterThan with 5 parties
+- [ ] 2585. Benchmark GreaterThan with 5 parties
+- [ ] 2586. Test GreaterThan gate with 10 parties
+- [ ] 2587. Verify MAC consistency for GreaterThan with 10 parties
+- [ ] 2588. Verify share reconstruction for GreaterThan with 10 parties
+- [ ] 2589. Benchmark GreaterThan with 10 parties
+- [ ] 2590. Test GreaterThan gate with 16 parties
+- [ ] 2591. Verify MAC consistency for GreaterThan with 16 parties
+- [ ] 2592. Verify share reconstruction for GreaterThan with 16 parties
+- [ ] 2593. Benchmark GreaterThan with 16 parties
+- [ ] 2594. Test GreaterThan gate with 32 parties
+- [ ] 2595. Verify MAC consistency for GreaterThan with 32 parties
+- [ ] 2596. Verify share reconstruction for GreaterThan with 32 parties
+- [ ] 2597. Benchmark GreaterThan with 32 parties
+
+## 29. Cross-product Matrix: Wire Scenario x Phase
+
+- [ ] 2598. Test key_agreement with empty wire scenario
+- [ ] 2599. Add regression test: key_agreement with empty
+- [ ] 2600. Test run_offline with empty wire scenario
+- [ ] 2601. Add regression test: run_offline with empty
+- [ ] 2602. Test share_inputs with empty wire scenario
+- [ ] 2603. Add regression test: share_inputs with empty
+- [ ] 2604. Test run_online with empty wire scenario
+- [ ] 2605. Add regression test: run_online with empty
+- [ ] 2606. Test reconstruct_outputs with empty wire scenario
+- [ ] 2607. Add regression test: reconstruct_outputs with empty
+- [ ] 2608. Test key_agreement with single-input wire scenario
+- [ ] 2609. Add regression test: key_agreement with single-input
+- [ ] 2610. Test run_offline with single-input wire scenario
+- [ ] 2611. Add regression test: run_offline with single-input
+- [ ] 2612. Test share_inputs with single-input wire scenario
+- [ ] 2613. Add regression test: share_inputs with single-input
+- [ ] 2614. Test run_online with single-input wire scenario
+- [ ] 2615. Add regression test: run_online with single-input
+- [ ] 2616. Test reconstruct_outputs with single-input wire scenario
+- [ ] 2617. Add regression test: reconstruct_outputs with single-input
+- [ ] 2618. Test key_agreement with multi-input wire scenario
+- [ ] 2619. Add regression test: key_agreement with multi-input
+- [ ] 2620. Test run_offline with multi-input wire scenario
+- [ ] 2621. Add regression test: run_offline with multi-input
+- [ ] 2622. Test share_inputs with multi-input wire scenario
+- [ ] 2623. Add regression test: share_inputs with multi-input
+- [ ] 2624. Test run_online with multi-input wire scenario
+- [ ] 2625. Add regression test: run_online with multi-input
+- [ ] 2626. Test reconstruct_outputs with multi-input wire scenario
+- [ ] 2627. Add regression test: reconstruct_outputs with multi-input
+- [ ] 2628. Test key_agreement with deep-chain wire scenario
+- [ ] 2629. Add regression test: key_agreement with deep-chain
+- [ ] 2630. Test run_offline with deep-chain wire scenario
+- [ ] 2631. Add regression test: run_offline with deep-chain
+- [ ] 2632. Test share_inputs with deep-chain wire scenario
+- [ ] 2633. Add regression test: share_inputs with deep-chain
+- [ ] 2634. Test run_online with deep-chain wire scenario
+- [ ] 2635. Add regression test: run_online with deep-chain
+- [ ] 2636. Test reconstruct_outputs with deep-chain wire scenario
+- [ ] 2637. Add regression test: reconstruct_outputs with deep-chain
+- [ ] 2638. Test key_agreement with wide-fanin wire scenario
+- [ ] 2639. Add regression test: key_agreement with wide-fanin
+- [ ] 2640. Test run_offline with wide-fanin wire scenario
+- [ ] 2641. Add regression test: run_offline with wide-fanin
+- [ ] 2642. Test share_inputs with wide-fanin wire scenario
+- [ ] 2643. Add regression test: share_inputs with wide-fanin
+- [ ] 2644. Test run_online with wide-fanin wire scenario
+- [ ] 2645. Add regression test: run_online with wide-fanin
+- [ ] 2646. Test reconstruct_outputs with wide-fanin wire scenario
+- [ ] 2647. Add regression test: reconstruct_outputs with wide-fanin
+- [ ] 2648. Test key_agreement with with-const wire scenario
+- [ ] 2649. Add regression test: key_agreement with with-const
+- [ ] 2650. Test run_offline with with-const wire scenario
+- [ ] 2651. Add regression test: run_offline with with-const
+- [ ] 2652. Test share_inputs with with-const wire scenario
+- [ ] 2653. Add regression test: share_inputs with with-const
+- [ ] 2654. Test run_online with with-const wire scenario
+- [ ] 2655. Add regression test: run_online with with-const
+- [ ] 2656. Test reconstruct_outputs with with-const wire scenario
+- [ ] 2657. Add regression test: reconstruct_outputs with with-const
+- [ ] 2658. Test key_agreement with with-output-reveal wire scenario
+- [ ] 2659. Add regression test: key_agreement with with-output-reveal
+- [ ] 2660. Test run_offline with with-output-reveal wire scenario
+- [ ] 2661. Add regression test: run_offline with with-output-reveal
+- [ ] 2662. Test share_inputs with with-output-reveal wire scenario
+- [ ] 2663. Add regression test: share_inputs with with-output-reveal
+- [ ] 2664. Test run_online with with-output-reveal wire scenario
+- [ ] 2665. Add regression test: run_online with with-output-reveal
+- [ ] 2666. Test reconstruct_outputs with with-output-reveal wire scenario
+- [ ] 2667. Add regression test: reconstruct_outputs with with-output-reveal
+- [ ] 2668. Test key_agreement with repeated-wires wire scenario
+- [ ] 2669. Add regression test: key_agreement with repeated-wires
+- [ ] 2670. Test run_offline with repeated-wires wire scenario
+- [ ] 2671. Add regression test: run_offline with repeated-wires
+- [ ] 2672. Test share_inputs with repeated-wires wire scenario
+- [ ] 2673. Add regression test: share_inputs with repeated-wires
+- [ ] 2674. Test run_online with repeated-wires wire scenario
+- [ ] 2675. Add regression test: run_online with repeated-wires
+- [ ] 2676. Test reconstruct_outputs with repeated-wires wire scenario
+- [ ] 2677. Add regression test: reconstruct_outputs with repeated-wires
+- [ ] 2678. Test key_agreement with invalid-ref wire scenario
+- [ ] 2679. Add regression test: key_agreement with invalid-ref
+- [ ] 2680. Test run_offline with invalid-ref wire scenario
+- [ ] 2681. Add regression test: run_offline with invalid-ref
+- [ ] 2682. Test share_inputs with invalid-ref wire scenario
+- [ ] 2683. Add regression test: share_inputs with invalid-ref
+- [ ] 2684. Test run_online with invalid-ref wire scenario
+- [ ] 2685. Add regression test: run_online with invalid-ref
+- [ ] 2686. Test reconstruct_outputs with invalid-ref wire scenario
+- [ ] 2687. Add regression test: reconstruct_outputs with invalid-ref
+- [ ] 2688. Test key_agreement with party-out-of-range wire scenario
+- [ ] 2689. Add regression test: key_agreement with party-out-of-range
+- [ ] 2690. Test run_offline with party-out-of-range wire scenario
+- [ ] 2691. Add regression test: run_offline with party-out-of-range
+- [ ] 2692. Test share_inputs with party-out-of-range wire scenario
+- [ ] 2693. Add regression test: share_inputs with party-out-of-range
+- [ ] 2694. Test run_online with party-out-of-range wire scenario
+- [ ] 2695. Add regression test: run_online with party-out-of-range
+- [ ] 2696. Test reconstruct_outputs with party-out-of-range wire scenario
+- [ ] 2697. Add regression test: reconstruct_outputs with party-out-of-range
+- [ ] 2698. Test key_agreement with negation-heavy wire scenario
+- [ ] 2699. Add regression test: key_agreement with negation-heavy
+- [ ] 2700. Test run_offline with negation-heavy wire scenario
+- [ ] 2701. Add regression test: run_offline with negation-heavy
+- [ ] 2702. Test share_inputs with negation-heavy wire scenario
+- [ ] 2703. Add regression test: share_inputs with negation-heavy
+- [ ] 2704. Test run_online with negation-heavy wire scenario
+- [ ] 2705. Add regression test: run_online with negation-heavy
+- [ ] 2706. Test reconstruct_outputs with negation-heavy wire scenario
+- [ ] 2707. Add regression test: reconstruct_outputs with negation-heavy
+- [ ] 2708. Test key_agreement with mixed-gates wire scenario
+- [ ] 2709. Add regression test: key_agreement with mixed-gates
+- [ ] 2710. Test run_offline with mixed-gates wire scenario
+- [ ] 2711. Add regression test: run_offline with mixed-gates
+- [ ] 2712. Test share_inputs with mixed-gates wire scenario
+- [ ] 2713. Add regression test: share_inputs with mixed-gates
+- [ ] 2714. Test run_online with mixed-gates wire scenario
+- [ ] 2715. Add regression test: run_online with mixed-gates
+- [ ] 2716. Test reconstruct_outputs with mixed-gates wire scenario
+- [ ] 2717. Add regression test: reconstruct_outputs with mixed-gates
+
+## 30. Cross-product Matrix: Endpoint x Auth State
+
+- [ ] 2718. Test /health unauthenticated (expect 401)
+- [ ] 2719. Test /health with invalid API key (expect 403)
+- [ ] 2720. Test /health with valid API key (expect 2xx)
+- [ ] 2721. Test /health with expired API key
+- [ ] 2722. Test /health with revoked API key
+- [ ] 2723. Test /health with wrong role token
+- [ ] 2724. Test /health under rate limit (expect 429)
+- [ ] 2725. Test /health with malformed JSON body
+- [ ] 2726. Test /health with empty body
+- [ ] 2727. Test /health with oversized body
+- [ ] 2728. Test /health concurrent requests
+- [ ] 2729. Test /health after server restart
+- [ ] 2730. Test /health latency under load
+- [ ] 2731. Add OpenAPI schema validation test for /health
+- [ ] 2732. Test POST /sessions unauthenticated (expect 401)
+- [ ] 2733. Test POST /sessions with invalid API key (expect 403)
+- [ ] 2734. Test POST /sessions with valid API key (expect 2xx)
+- [ ] 2735. Test POST /sessions with expired API key
+- [ ] 2736. Test POST /sessions with revoked API key
+- [ ] 2737. Test POST /sessions with wrong role token
+- [ ] 2738. Test POST /sessions under rate limit (expect 429)
+- [ ] 2739. Test POST /sessions with malformed JSON body
+- [ ] 2740. Test POST /sessions with empty body
+- [ ] 2741. Test POST /sessions with oversized body
+- [ ] 2742. Test POST /sessions concurrent requests
+- [ ] 2743. Test POST /sessions after server restart
+- [ ] 2744. Test POST /sessions latency under load
+- [ ] 2745. Add OpenAPI schema validation test for POST /sessions
+- [ ] 2746. Test GET /sessions/:id unauthenticated (expect 401)
+- [ ] 2747. Test GET /sessions/:id with invalid API key (expect 403)
+- [ ] 2748. Test GET /sessions/:id with valid API key (expect 2xx)
+- [ ] 2749. Test GET /sessions/:id with expired API key
+- [ ] 2750. Test GET /sessions/:id with revoked API key
+- [ ] 2751. Test GET /sessions/:id with wrong role token
+- [ ] 2752. Test GET /sessions/:id under rate limit (expect 429)
+- [ ] 2753. Test GET /sessions/:id with malformed JSON body
+- [ ] 2754. Test GET /sessions/:id with empty body
+- [ ] 2755. Test GET /sessions/:id with oversized body
+- [ ] 2756. Test GET /sessions/:id concurrent requests
+- [ ] 2757. Test GET /sessions/:id after server restart
+- [ ] 2758. Test GET /sessions/:id latency under load
+- [ ] 2759. Add OpenAPI schema validation test for GET /sessions/:id
+- [ ] 2760. Test POST /sessions/:id/participants unauthenticated (expect 401)
+- [ ] 2761. Test POST /sessions/:id/participants with invalid API key (expect 403)
+- [ ] 2762. Test POST /sessions/:id/participants with valid API key (expect 2xx)
+- [ ] 2763. Test POST /sessions/:id/participants with expired API key
+- [ ] 2764. Test POST /sessions/:id/participants with revoked API key
+- [ ] 2765. Test POST /sessions/:id/participants with wrong role token
+- [ ] 2766. Test POST /sessions/:id/participants under rate limit (expect 429)
+- [ ] 2767. Test POST /sessions/:id/participants with malformed JSON body
+- [ ] 2768. Test POST /sessions/:id/participants with empty body
+- [ ] 2769. Test POST /sessions/:id/participants with oversized body
+- [ ] 2770. Test POST /sessions/:id/participants concurrent requests
+- [ ] 2771. Test POST /sessions/:id/participants after server restart
+- [ ] 2772. Test POST /sessions/:id/participants latency under load
+- [ ] 2773. Add OpenAPI schema validation test for POST /sessions/:id/participants
+- [ ] 2774. Test POST /sessions/:id/execute unauthenticated (expect 401)
+- [ ] 2775. Test POST /sessions/:id/execute with invalid API key (expect 403)
+- [ ] 2776. Test POST /sessions/:id/execute with valid API key (expect 2xx)
+- [ ] 2777. Test POST /sessions/:id/execute with expired API key
+- [ ] 2778. Test POST /sessions/:id/execute with revoked API key
+- [ ] 2779. Test POST /sessions/:id/execute with wrong role token
+- [ ] 2780. Test POST /sessions/:id/execute under rate limit (expect 429)
+- [ ] 2781. Test POST /sessions/:id/execute with malformed JSON body
+- [ ] 2782. Test POST /sessions/:id/execute with empty body
+- [ ] 2783. Test POST /sessions/:id/execute with oversized body
+- [ ] 2784. Test POST /sessions/:id/execute concurrent requests
+- [ ] 2785. Test POST /sessions/:id/execute after server restart
+- [ ] 2786. Test POST /sessions/:id/execute latency under load
+- [ ] 2787. Add OpenAPI schema validation test for POST /sessions/:id/execute
+- [ ] 2788. Test GET /sessions/:id/results unauthenticated (expect 401)
+- [ ] 2789. Test GET /sessions/:id/results with invalid API key (expect 403)
+- [ ] 2790. Test GET /sessions/:id/results with valid API key (expect 2xx)
+- [ ] 2791. Test GET /sessions/:id/results with expired API key
+- [ ] 2792. Test GET /sessions/:id/results with revoked API key
+- [ ] 2793. Test GET /sessions/:id/results with wrong role token
+- [ ] 2794. Test GET /sessions/:id/results under rate limit (expect 429)
+- [ ] 2795. Test GET /sessions/:id/results with malformed JSON body
+- [ ] 2796. Test GET /sessions/:id/results with empty body
+- [ ] 2797. Test GET /sessions/:id/results with oversized body
+- [ ] 2798. Test GET /sessions/:id/results concurrent requests
+- [ ] 2799. Test GET /sessions/:id/results after server restart
+- [ ] 2800. Test GET /sessions/:id/results latency under load
+- [ ] 2801. Add OpenAPI schema validation test for GET /sessions/:id/results
+
+## 31. gRPC Cross-product: RPC x Status Codes
+
+- [ ] 2802. Map all error codes for Health RPC to gRPC status
+- [ ] 2803. Test Health RPC with invalid session id (NOT_FOUND)
+- [ ] 2804. Test Health RPC with missing fields (INVALID_ARGUMENT)
+- [ ] 2805. Test Health RPC with auth failure (UNAUTHENTICATED)
+- [ ] 2806. Test Health RPC with policy denial (PERMISSION_DENIED)
+- [ ] 2807. Test Health RPC with internal error (INTERNAL)
+- [ ] 2808. Test Health RPC happy path
+- [ ] 2809. Test Health RPC deadline exceeded
+- [ ] 2810. Test Health RPC cancellation
+- [ ] 2811. Test Health RPC with malformed protobuf
+- [ ] 2812. Test Health RPC with oversized message
+- [ ] 2813. Document status mapping for Health
+- [ ] 2814. Map all error codes for CreateSession RPC to gRPC status
+- [ ] 2815. Test CreateSession RPC with invalid session id (NOT_FOUND)
+- [ ] 2816. Test CreateSession RPC with missing fields (INVALID_ARGUMENT)
+- [ ] 2817. Test CreateSession RPC with auth failure (UNAUTHENTICATED)
+- [ ] 2818. Test CreateSession RPC with policy denial (PERMISSION_DENIED)
+- [ ] 2819. Test CreateSession RPC with internal error (INTERNAL)
+- [ ] 2820. Test CreateSession RPC happy path
+- [ ] 2821. Test CreateSession RPC deadline exceeded
+- [ ] 2822. Test CreateSession RPC cancellation
+- [ ] 2823. Test CreateSession RPC with malformed protobuf
+- [ ] 2824. Test CreateSession RPC with oversized message
+- [ ] 2825. Document status mapping for CreateSession
+- [ ] 2826. Map all error codes for AddParticipant RPC to gRPC status
+- [ ] 2827. Test AddParticipant RPC with invalid session id (NOT_FOUND)
+- [ ] 2828. Test AddParticipant RPC with missing fields (INVALID_ARGUMENT)
+- [ ] 2829. Test AddParticipant RPC with auth failure (UNAUTHENTICATED)
+- [ ] 2830. Test AddParticipant RPC with policy denial (PERMISSION_DENIED)
+- [ ] 2831. Test AddParticipant RPC with internal error (INTERNAL)
+- [ ] 2832. Test AddParticipant RPC happy path
+- [ ] 2833. Test AddParticipant RPC deadline exceeded
+- [ ] 2834. Test AddParticipant RPC cancellation
+- [ ] 2835. Test AddParticipant RPC with malformed protobuf
+- [ ] 2836. Test AddParticipant RPC with oversized message
+- [ ] 2837. Document status mapping for AddParticipant
+- [ ] 2838. Map all error codes for GetSession RPC to gRPC status
+- [ ] 2839. Test GetSession RPC with invalid session id (NOT_FOUND)
+- [ ] 2840. Test GetSession RPC with missing fields (INVALID_ARGUMENT)
+- [ ] 2841. Test GetSession RPC with auth failure (UNAUTHENTICATED)
+- [ ] 2842. Test GetSession RPC with policy denial (PERMISSION_DENIED)
+- [ ] 2843. Test GetSession RPC with internal error (INTERNAL)
+- [ ] 2844. Test GetSession RPC happy path
+- [ ] 2845. Test GetSession RPC deadline exceeded
+- [ ] 2846. Test GetSession RPC cancellation
+- [ ] 2847. Test GetSession RPC with malformed protobuf
+- [ ] 2848. Test GetSession RPC with oversized message
+- [ ] 2849. Document status mapping for GetSession
+- [ ] 2850. Map all error codes for DefineCircuit RPC to gRPC status
+- [ ] 2851. Test DefineCircuit RPC with invalid session id (NOT_FOUND)
+- [ ] 2852. Test DefineCircuit RPC with missing fields (INVALID_ARGUMENT)
+- [ ] 2853. Test DefineCircuit RPC with auth failure (UNAUTHENTICATED)
+- [ ] 2854. Test DefineCircuit RPC with policy denial (PERMISSION_DENIED)
+- [ ] 2855. Test DefineCircuit RPC with internal error (INTERNAL)
+- [ ] 2856. Test DefineCircuit RPC happy path
+- [ ] 2857. Test DefineCircuit RPC deadline exceeded
+- [ ] 2858. Test DefineCircuit RPC cancellation
+- [ ] 2859. Test DefineCircuit RPC with malformed protobuf
+- [ ] 2860. Test DefineCircuit RPC with oversized message
+- [ ] 2861. Document status mapping for DefineCircuit
+- [ ] 2862. Map all error codes for ExecuteSession RPC to gRPC status
+- [ ] 2863. Test ExecuteSession RPC with invalid session id (NOT_FOUND)
+- [ ] 2864. Test ExecuteSession RPC with missing fields (INVALID_ARGUMENT)
+- [ ] 2865. Test ExecuteSession RPC with auth failure (UNAUTHENTICATED)
+- [ ] 2866. Test ExecuteSession RPC with policy denial (PERMISSION_DENIED)
+- [ ] 2867. Test ExecuteSession RPC with internal error (INTERNAL)
+- [ ] 2868. Test ExecuteSession RPC happy path
+- [ ] 2869. Test ExecuteSession RPC deadline exceeded
+- [ ] 2870. Test ExecuteSession RPC cancellation
+- [ ] 2871. Test ExecuteSession RPC with malformed protobuf
+- [ ] 2872. Test ExecuteSession RPC with oversized message
+- [ ] 2873. Document status mapping for ExecuteSession
+
+## 32. Serialization round-trip matrix (message x codec)
+
+- [ ] 2874. Round-trip test KeyShareMessage with bincode
+- [ ] 2875. Round-trip test OpenShareMessage with bincode
+- [ ] 2876. Round-trip test InputShareMessage with bincode
+- [ ] 2877. Round-trip test OutputShareMessage with bincode
+- [ ] 2878. Round-trip test MessageEnvelope with bincode
+- [ ] 2879. Round-trip test ArithmeticCircuit with bincode
+- [ ] 2880. Round-trip test BeaverTriple with bincode
+- [ ] 2881. Round-trip test AuthenticatedShare with bincode
+- [ ] 2882. Round-trip test SessionPolicy with bincode
+- [ ] 2883. Round-trip test AuditEntry with bincode
+- [ ] 2884. Test bincode reject malformed input
+- [ ] 2885. Benchmark bincode encode/decode
+- [ ] 2886. Round-trip test KeyShareMessage with json
+- [ ] 2887. Round-trip test OpenShareMessage with json
+- [ ] 2888. Round-trip test InputShareMessage with json
+- [ ] 2889. Round-trip test OutputShareMessage with json
+- [ ] 2890. Round-trip test MessageEnvelope with json
+- [ ] 2891. Round-trip test ArithmeticCircuit with json
+- [ ] 2892. Round-trip test BeaverTriple with json
+- [ ] 2893. Round-trip test AuthenticatedShare with json
+- [ ] 2894. Round-trip test SessionPolicy with json
+- [ ] 2895. Round-trip test AuditEntry with json
+- [ ] 2896. Test json reject malformed input
+- [ ] 2897. Benchmark json encode/decode
+- [ ] 2898. Round-trip test KeyShareMessage with cbor
+- [ ] 2899. Round-trip test OpenShareMessage with cbor
+- [ ] 2900. Round-trip test InputShareMessage with cbor
+- [ ] 2901. Round-trip test OutputShareMessage with cbor
+- [ ] 2902. Round-trip test MessageEnvelope with cbor
+- [ ] 2903. Round-trip test ArithmeticCircuit with cbor
+- [ ] 2904. Round-trip test BeaverTriple with cbor
+- [ ] 2905. Round-trip test AuthenticatedShare with cbor
+- [ ] 2906. Round-trip test SessionPolicy with cbor
+- [ ] 2907. Round-trip test AuditEntry with cbor
+- [ ] 2908. Test cbor reject malformed input
+- [ ] 2909. Benchmark cbor encode/decode
+
+## 33. TLS/Certificate matrix
+
+- [ ] 2910. Test server TLS with self-signed certificates
+- [ ] 2911. Test client TLS with self-signed certificates
+- [ ] 2912. Test mTLS with self-signed certificates
+- [ ] 2913. Test cert rotation with self-signed
+- [ ] 2914. Test cert expiry handling with self-signed
+- [ ] 2915. Document self-signed setup
+- [ ] 2916. Test server TLS with CA-issued certificates
+- [ ] 2917. Test client TLS with CA-issued certificates
+- [ ] 2918. Test mTLS with CA-issued certificates
+- [ ] 2919. Test cert rotation with CA-issued
+- [ ] 2920. Test cert expiry handling with CA-issued
+- [ ] 2921. Document CA-issued setup
+- [ ] 2922. Test server TLS with LetEncrypt certificates
+- [ ] 2923. Test client TLS with LetEncrypt certificates
+- [ ] 2924. Test mTLS with LetEncrypt certificates
+- [ ] 2925. Test cert rotation with LetEncrypt
+- [ ] 2926. Test cert expiry handling with LetEncrypt
+- [ ] 2927. Document LetEncrypt setup
+- [ ] 2928. Test server TLS with cert-manager certificates
+- [ ] 2929. Test client TLS with cert-manager certificates
+- [ ] 2930. Test mTLS with cert-manager certificates
+- [ ] 2931. Test cert rotation with cert-manager
+- [ ] 2932. Test cert expiry handling with cert-manager
+- [ ] 2933. Document cert-manager setup
+- [ ] 2934. Test server TLS with custom-ca certificates
+- [ ] 2935. Test client TLS with custom-ca certificates
+- [ ] 2936. Test mTLS with custom-ca certificates
+- [ ] 2937. Test cert rotation with custom-ca
+- [ ] 2938. Test cert expiry handling with custom-ca
+- [ ] 2939. Document custom-ca setup
+- [ ] 2940. Verify TLS_AES_128_GCM_SHA256 suite works in TLS config
+- [ ] 2941. Verify TLS_AES_256_GCM_SHA384 suite works in TLS config
+- [ ] 2942. Verify TLS_CHACHA20_POLY1305_SHA256 suite works in TLS config
+- [ ] 2943. Test TLS 1.2 fallback
+- [ ] 2944. Test TLS 1.3 default
+- [ ] 2945. Test client cert required mode
+- [ ] 2946. Test client cert optional mode
+- [ ] 2947. Test self-signed hostname verification failure
+- [ ] 2948. Test cert with wrong SAN rejected
+- [ ] 2949. Test expired cert rejected
+- [ ] 2950. Test revoked cert rejected (if OCSP/CRL supported)
+- [ ] 2951. Test TLS session resumption
+- [ ] 2952. Benchmark TLS handshake cost
+
+## 34. Configuration matrix (feature x value)
+
+- [ ] 2953. Test config default for TLS_ENABLED
+- [ ] 2954. Test config invalid value for TLS_ENABLED
+- [ ] 2955. Test config boundary value for TLS_ENABLED
+- [ ] 2956. Test config via env for TLS_ENABLED
+- [ ] 2957. Test config via file for TLS_ENABLED
+- [ ] 2958. Test config precedence for TLS_ENABLED
+- [ ] 2959. Document TLS_ENABLED semantics
+- [ ] 2960. Test config default for NUM_PARTIES
+- [ ] 2961. Test config invalid value for NUM_PARTIES
+- [ ] 2962. Test config boundary value for NUM_PARTIES
+- [ ] 2963. Test config via env for NUM_PARTIES
+- [ ] 2964. Test config via file for NUM_PARTIES
+- [ ] 2965. Test config precedence for NUM_PARTIES
+- [ ] 2966. Document NUM_PARTIES semantics
+- [ ] 2967. Test config default for PARTY_ID
+- [ ] 2968. Test config invalid value for PARTY_ID
+- [ ] 2969. Test config boundary value for PARTY_ID
+- [ ] 2970. Test config via env for PARTY_ID
+- [ ] 2971. Test config via file for PARTY_ID
+- [ ] 2972. Test config precedence for PARTY_ID
+- [ ] 2973. Document PARTY_ID semantics
+- [ ] 2974. Test config default for SECURITY_BITS
+- [ ] 2975. Test config invalid value for SECURITY_BITS
+- [ ] 2976. Test config boundary value for SECURITY_BITS
+- [ ] 2977. Test config via env for SECURITY_BITS
+- [ ] 2978. Test config via file for SECURITY_BITS
+- [ ] 2979. Test config precedence for SECURITY_BITS
+- [ ] 2980. Document SECURITY_BITS semantics
+- [ ] 2981. Test config default for API_PORT
+- [ ] 2982. Test config invalid value for API_PORT
+- [ ] 2983. Test config boundary value for API_PORT
+- [ ] 2984. Test config via env for API_PORT
+- [ ] 2985. Test config via file for API_PORT
+- [ ] 2986. Test config precedence for API_PORT
+- [ ] 2987. Document API_PORT semantics
+- [ ] 2988. Test config default for LISTEN_ADDR
+- [ ] 2989. Test config invalid value for LISTEN_ADDR
+- [ ] 2990. Test config boundary value for LISTEN_ADDR
+- [ ] 2991. Test config via env for LISTEN_ADDR
+- [ ] 2992. Test config via file for LISTEN_ADDR
+- [ ] 2993. Test config precedence for LISTEN_ADDR
+- [ ] 2994. Document LISTEN_ADDR semantics
+- [ ] 2995. Test config default for LOG_LEVEL
+- [ ] 2996. Test config invalid value for LOG_LEVEL
+- [ ] 2997. Test config boundary value for LOG_LEVEL
+- [ ] 2998. Test config via env for LOG_LEVEL
+- [ ] 2999. Test config via file for LOG_LEVEL
+- [ ] 3000. Test config precedence for LOG_LEVEL
+- [ ] 3001. Document LOG_LEVEL semantics
+- [ ] 3002. Test config default for MAX_MESSAGE_SIZE
+- [ ] 3003. Test config invalid value for MAX_MESSAGE_SIZE
+- [ ] 3004. Test config boundary value for MAX_MESSAGE_SIZE
+- [ ] 3005. Test config via env for MAX_MESSAGE_SIZE
+- [ ] 3006. Test config via file for MAX_MESSAGE_SIZE
+- [ ] 3007. Test config precedence for MAX_MESSAGE_SIZE
+- [ ] 3008. Document MAX_MESSAGE_SIZE semantics
+- [ ] 3009. Test config default for RATE_LIMIT
+- [ ] 3010. Test config invalid value for RATE_LIMIT
+- [ ] 3011. Test config boundary value for RATE_LIMIT
+- [ ] 3012. Test config via env for RATE_LIMIT
+- [ ] 3013. Test config via file for RATE_LIMIT
+- [ ] 3014. Test config precedence for RATE_LIMIT
+- [ ] 3015. Document RATE_LIMIT semantics
+- [ ] 3016. Test config default for METRICS_ENABLED
+- [ ] 3017. Test config invalid value for METRICS_ENABLED
+- [ ] 3018. Test config boundary value for METRICS_ENABLED
+- [ ] 3019. Test config via env for METRICS_ENABLED
+- [ ] 3020. Test config via file for METRICS_ENABLED
+- [ ] 3021. Test config precedence for METRICS_ENABLED
+- [ ] 3022. Document METRICS_ENABLED semantics
+
+## 35. Failure-injection matrix (component x fault)
+
+- [ ] 3023. Failure-inject crash in TCP transport
+- [ ] 3024. Failure-inject crash in in-memory transport
+- [ ] 3025. Failure-inject crash in coordinator
+- [ ] 3026. Failure-inject crash in party execution
+- [ ] 3027. Document expected behavior for crash
+- [ ] 3028. Add recovery test for crash
+- [ ] 3029. Failure-inject timeout in TCP transport
+- [ ] 3030. Failure-inject timeout in in-memory transport
+- [ ] 3031. Failure-inject timeout in coordinator
+- [ ] 3032. Failure-inject timeout in party execution
+- [ ] 3033. Document expected behavior for timeout
+- [ ] 3034. Add recovery test for timeout
+- [ ] 3035. Failure-inject slow in TCP transport
+- [ ] 3036. Failure-inject slow in in-memory transport
+- [ ] 3037. Failure-inject slow in coordinator
+- [ ] 3038. Failure-inject slow in party execution
+- [ ] 3039. Document expected behavior for slow
+- [ ] 3040. Add recovery test for slow
+- [ ] 3041. Failure-inject duplicate in TCP transport
+- [ ] 3042. Failure-inject duplicate in in-memory transport
+- [ ] 3043. Failure-inject duplicate in coordinator
+- [ ] 3044. Failure-inject duplicate in party execution
+- [ ] 3045. Document expected behavior for duplicate
+- [ ] 3046. Add recovery test for duplicate
+- [ ] 3047. Failure-inject reorder in TCP transport
+- [ ] 3048. Failure-inject reorder in in-memory transport
+- [ ] 3049. Failure-inject reorder in coordinator
+- [ ] 3050. Failure-inject reorder in party execution
+- [ ] 3051. Document expected behavior for reorder
+- [ ] 3052. Add recovery test for reorder
+- [ ] 3053. Failure-inject corrupt in TCP transport
+- [ ] 3054. Failure-inject corrupt in in-memory transport
+- [ ] 3055. Failure-inject corrupt in coordinator
+- [ ] 3056. Failure-inject corrupt in party execution
+- [ ] 3057. Document expected behavior for corrupt
+- [ ] 3058. Add recovery test for corrupt
+- [ ] 3059. Failure-inject oversize in TCP transport
+- [ ] 3060. Failure-inject oversize in in-memory transport
+- [ ] 3061. Failure-inject oversize in coordinator
+- [ ] 3062. Failure-inject oversize in party execution
+- [ ] 3063. Document expected behavior for oversize
+- [ ] 3064. Add recovery test for oversize
+- [ ] 3065. Failure-inject drop in TCP transport
+- [ ] 3066. Failure-inject drop in in-memory transport
+- [ ] 3067. Failure-inject drop in coordinator
+- [ ] 3068. Failure-inject drop in party execution
+- [ ] 3069. Document expected behavior for drop
+- [ ] 3070. Add recovery test for drop
+- [ ] 3071. Failure-inject delay in TCP transport
+- [ ] 3072. Failure-inject delay in in-memory transport
+- [ ] 3073. Failure-inject delay in coordinator
+- [ ] 3074. Failure-inject delay in party execution
+- [ ] 3075. Document expected behavior for delay
+- [ ] 3076. Add recovery test for delay
+- [ ] 3077. Failure-inject split-brain in TCP transport
+- [ ] 3078. Failure-inject split-brain in in-memory transport
+- [ ] 3079. Failure-inject split-brain in coordinator
+- [ ] 3080. Failure-inject split-brain in party execution
+- [ ] 3081. Document expected behavior for split-brain
+- [ ] 3082. Add recovery test for split-brain
+- [ ] 3083. Failure-inject clock-skew in TCP transport
+- [ ] 3084. Failure-inject clock-skew in in-memory transport
+- [ ] 3085. Failure-inject clock-skew in coordinator
+- [ ] 3086. Failure-inject clock-skew in party execution
+- [ ] 3087. Document expected behavior for clock-skew
+- [ ] 3088. Add recovery test for clock-skew
+- [ ] 3089. Failure-inject disk-full in TCP transport
+- [ ] 3090. Failure-inject disk-full in in-memory transport
+- [ ] 3091. Failure-inject disk-full in coordinator
+- [ ] 3092. Failure-inject disk-full in party execution
+- [ ] 3093. Document expected behavior for disk-full
+- [ ] 3094. Add recovery test for disk-full
+
+## 36. FHE operation matrix
+
+- [ ] 3095. Unit test FHE encrypt correctness
+- [ ] 3096. Test FHE encrypt with small plaintext
+- [ ] 3097. Test FHE encrypt with large plaintext
+- [ ] 3098. Test FHE encrypt with noise growth
+- [ ] 3099. Benchmark FHE encrypt
+- [ ] 3100. Document FHE encrypt API
+- [ ] 3101. Unit test FHE decrypt correctness
+- [ ] 3102. Test FHE decrypt with small plaintext
+- [ ] 3103. Test FHE decrypt with large plaintext
+- [ ] 3104. Test FHE decrypt with noise growth
+- [ ] 3105. Benchmark FHE decrypt
+- [ ] 3106. Document FHE decrypt API
+- [ ] 3107. Unit test FHE add correctness
+- [ ] 3108. Test FHE add with small plaintext
+- [ ] 3109. Test FHE add with large plaintext
+- [ ] 3110. Test FHE add with noise growth
+- [ ] 3111. Benchmark FHE add
+- [ ] 3112. Document FHE add API
+- [ ] 3113. Unit test FHE mul correctness
+- [ ] 3114. Test FHE mul with small plaintext
+- [ ] 3115. Test FHE mul with large plaintext
+- [ ] 3116. Test FHE mul with noise growth
+- [ ] 3117. Benchmark FHE mul
+- [ ] 3118. Document FHE mul API
+- [ ] 3119. Unit test FHE partial_decrypt correctness
+- [ ] 3120. Test FHE partial_decrypt with small plaintext
+- [ ] 3121. Test FHE partial_decrypt with large plaintext
+- [ ] 3122. Test FHE partial_decrypt with noise growth
+- [ ] 3123. Benchmark FHE partial_decrypt
+- [ ] 3124. Document FHE partial_decrypt API
+- [ ] 3125. Unit test FHE combine correctness
+- [ ] 3126. Test FHE combine with small plaintext
+- [ ] 3127. Test FHE combine with large plaintext
+- [ ] 3128. Test FHE combine with noise growth
+- [ ] 3129. Benchmark FHE combine
+- [ ] 3130. Document FHE combine API
+- [ ] 3131. Unit test FHE keygen correctness
+- [ ] 3132. Test FHE keygen with small plaintext
+- [ ] 3133. Test FHE keygen with large plaintext
+- [ ] 3134. Test FHE keygen with noise growth
+- [ ] 3135. Benchmark FHE keygen
+- [ ] 3136. Document FHE keygen API
+- [ ] 3137. Unit test FHE relinearize correctness
+- [ ] 3138. Test FHE relinearize with small plaintext
+- [ ] 3139. Test FHE relinearize with large plaintext
+- [ ] 3140. Test FHE relinearize with noise growth
+- [ ] 3141. Benchmark FHE relinearize
+- [ ] 3142. Document FHE relinearize API
+- [ ] 3143. Unit test FHE bootstrapping correctness
+- [ ] 3144. Test FHE bootstrapping with small plaintext
+- [ ] 3145. Test FHE bootstrapping with large plaintext
+- [ ] 3146. Test FHE bootstrapping with noise growth
+- [ ] 3147. Benchmark FHE bootstrapping
+- [ ] 3148. Document FHE bootstrapping API
+- [ ] 3149. Unit test FHE plaintext_encoding correctness
+- [ ] 3150. Test FHE plaintext_encoding with small plaintext
+- [ ] 3151. Test FHE plaintext_encoding with large plaintext
+- [ ] 3152. Test FHE plaintext_encoding with noise growth
+- [ ] 3153. Benchmark FHE plaintext_encoding
+- [ ] 3154. Document FHE plaintext_encoding API
+
+## 37. Audit log matrix
+
+- [ ] 3155. Record audit event: session_created
+- [ ] 3156. Test audit query by session for session_created
+- [ ] 3157. Test audit query by action for session_created
+- [ ] 3158. Test audit commitment includes session_created
+- [ ] 3159. Test audit export contains session_created
+- [ ] 3160. Record audit event: participant_added
+- [ ] 3161. Test audit query by session for participant_added
+- [ ] 3162. Test audit query by action for participant_added
+- [ ] 3163. Test audit commitment includes participant_added
+- [ ] 3164. Test audit export contains participant_added
+- [ ] 3165. Record audit event: session_started
+- [ ] 3166. Test audit query by session for session_started
+- [ ] 3167. Test audit query by action for session_started
+- [ ] 3168. Test audit commitment includes session_started
+- [ ] 3169. Test audit export contains session_started
+- [ ] 3170. Record audit event: session_completed
+- [ ] 3171. Test audit query by session for session_completed
+- [ ] 3172. Test audit query by action for session_completed
+- [ ] 3173. Test audit commitment includes session_completed
+- [ ] 3174. Test audit export contains session_completed
+- [ ] 3175. Record audit event: session_failed
+- [ ] 3176. Test audit query by session for session_failed
+- [ ] 3177. Test audit query by action for session_failed
+- [ ] 3178. Test audit commitment includes session_failed
+- [ ] 3179. Test audit export contains session_failed
+- [ ] 3180. Record audit event: circuit_defined
+- [ ] 3181. Test audit query by session for circuit_defined
+- [ ] 3182. Test audit query by action for circuit_defined
+- [ ] 3183. Test audit commitment includes circuit_defined
+- [ ] 3184. Test audit export contains circuit_defined
+- [ ] 3185. Record audit event: session_cancelled
+- [ ] 3186. Test audit query by session for session_cancelled
+- [ ] 3187. Test audit query by action for session_cancelled
+- [ ] 3188. Test audit commitment includes session_cancelled
+- [ ] 3189. Test audit export contains session_cancelled
+- [ ] 3190. Record audit event: key_rotated
+- [ ] 3191. Test audit query by session for key_rotated
+- [ ] 3192. Test audit query by action for key_rotated
+- [ ] 3193. Test audit commitment includes key_rotated
+- [ ] 3194. Test audit export contains key_rotated
+- [ ] 3195. Record audit event: policy_changed
+- [ ] 3196. Test audit query by session for policy_changed
+- [ ] 3197. Test audit query by action for policy_changed
+- [ ] 3198. Test audit commitment includes policy_changed
+- [ ] 3199. Test audit export contains policy_changed
+
+## 38. Policy engine matrix
+
+- [ ] 3200. Unit test policy rule: max_participants
+- [ ] 3201. Test policy enforcement of max_participants
+- [ ] 3202. Test policy bypass attempt for max_participants
+- [ ] 3203. Document policy max_participants
+- [ ] 3204. Unit test policy rule: min_participants
+- [ ] 3205. Test policy enforcement of min_participants
+- [ ] 3206. Test policy bypass attempt for min_participants
+- [ ] 3207. Document policy min_participants
+- [ ] 3208. Unit test policy rule: late_join
+- [ ] 3209. Test policy enforcement of late_join
+- [ ] 3210. Test policy bypass attempt for late_join
+- [ ] 3211. Document policy late_join
+- [ ] 3212. Unit test policy rule: max_mul_gates
+- [ ] 3213. Test policy enforcement of max_mul_gates
+- [ ] 3214. Test policy bypass attempt for max_mul_gates
+- [ ] 3215. Document policy max_mul_gates
+- [ ] 3216. Unit test policy rule: max_depth
+- [ ] 3217. Test policy enforcement of max_depth
+- [ ] 3218. Test policy bypass attempt for max_depth
+- [ ] 3219. Document policy max_depth
+- [ ] 3220. Unit test policy rule: allowed_gate_types
+- [ ] 3221. Test policy enforcement of allowed_gate_types
+- [ ] 3222. Test policy bypass attempt for allowed_gate_types
+- [ ] 3223. Document policy allowed_gate_types
+- [ ] 3224. Unit test policy rule: allowed_roles
+- [ ] 3225. Test policy enforcement of allowed_roles
+- [ ] 3226. Test policy bypass attempt for allowed_roles
+- [ ] 3227. Document policy allowed_roles
+- [ ] 3228. Unit test policy rule: endpoint_allowlist
+- [ ] 3229. Test policy enforcement of endpoint_allowlist
+- [ ] 3230. Test policy bypass attempt for endpoint_allowlist
+- [ ] 3231. Document policy endpoint_allowlist
+- [ ] 3232. Unit test policy rule: session_ttl
+- [ ] 3233. Test policy enforcement of session_ttl
+- [ ] 3234. Test policy bypass attempt for session_ttl
+- [ ] 3235. Document policy session_ttl
+- [ ] 3236. Unit test policy rule: input_size_limit
+- [ ] 3237. Test policy enforcement of input_size_limit
+- [ ] 3238. Test policy bypass attempt for input_size_limit
+- [ ] 3239. Document policy input_size_limit
+
+## 39. Scalar field matrix
+
+- [ ] 3240. Test Scalar::from_u64 with zero
+- [ ] 3241. Test Scalar::from_bytes with zero
+- [ ] 3242. Test Scalar add with zero
+- [ ] 3243. Test Scalar sub with zero
+- [ ] 3244. Test Scalar mul with zero
+- [ ] 3245. Test Scalar invert with zero
+- [ ] 3246. Test Scalar zeroize with zero
+- [ ] 3247. Test Scalar serialization with zero
+- [ ] 3248. Benchmark Scalar ops with zero
+- [ ] 3249. Test Scalar::from_u64 with one
+- [ ] 3250. Test Scalar::from_bytes with one
+- [ ] 3251. Test Scalar add with one
+- [ ] 3252. Test Scalar sub with one
+- [ ] 3253. Test Scalar mul with one
+- [ ] 3254. Test Scalar invert with one
+- [ ] 3255. Test Scalar zeroize with one
+- [ ] 3256. Test Scalar serialization with one
+- [ ] 3257. Benchmark Scalar ops with one
+- [ ] 3258. Test Scalar::from_u64 with negative
+- [ ] 3259. Test Scalar::from_bytes with negative
+- [ ] 3260. Test Scalar add with negative
+- [ ] 3261. Test Scalar sub with negative
+- [ ] 3262. Test Scalar mul with negative
+- [ ] 3263. Test Scalar invert with negative
+- [ ] 3264. Test Scalar zeroize with negative
+- [ ] 3265. Test Scalar serialization with negative
+- [ ] 3266. Benchmark Scalar ops with negative
+- [ ] 3267. Test Scalar::from_u64 with field_max
+- [ ] 3268. Test Scalar::from_bytes with field_max
+- [ ] 3269. Test Scalar add with field_max
+- [ ] 3270. Test Scalar sub with field_max
+- [ ] 3271. Test Scalar mul with field_max
+- [ ] 3272. Test Scalar invert with field_max
+- [ ] 3273. Test Scalar zeroize with field_max
+- [ ] 3274. Test Scalar serialization with field_max
+- [ ] 3275. Benchmark Scalar ops with field_max
+- [ ] 3276. Test Scalar::from_u64 with large_random
+- [ ] 3277. Test Scalar::from_bytes with large_random
+- [ ] 3278. Test Scalar add with large_random
+- [ ] 3279. Test Scalar sub with large_random
+- [ ] 3280. Test Scalar mul with large_random
+- [ ] 3281. Test Scalar invert with large_random
+- [ ] 3282. Test Scalar zeroize with large_random
+- [ ] 3283. Test Scalar serialization with large_random
+- [ ] 3284. Benchmark Scalar ops with large_random
+
+## 40. Environment matrix
+
+- [ ] 3285. Define config for dev
+- [ ] 3286. Define deployment for dev
+- [ ] 3287. Define monitoring for dev
+- [ ] 3288. Define backup for dev
+- [ ] 3289. Define alerting for dev
+- [ ] 3290. Add smoke test for dev
+- [ ] 3291. Document promotion to dev
+- [ ] 3292. Define config for staging
+- [ ] 3293. Define deployment for staging
+- [ ] 3294. Define monitoring for staging
+- [ ] 3295. Define backup for staging
+- [ ] 3296. Define alerting for staging
+- [ ] 3297. Add smoke test for staging
+- [ ] 3298. Document promotion to staging
+- [ ] 3299. Define config for prod
+- [ ] 3300. Define deployment for prod
+- [ ] 3301. Define monitoring for prod
+- [ ] 3302. Define backup for prod
+- [ ] 3303. Define alerting for prod
+- [ ] 3304. Add smoke test for prod
+- [ ] 3305. Document promotion to prod
+- [ ] 3306. Define config for canary
+- [ ] 3307. Define deployment for canary
+- [ ] 3308. Define monitoring for canary
+- [ ] 3309. Define backup for canary
+- [ ] 3310. Define alerting for canary
+- [ ] 3311. Add smoke test for canary
+- [ ] 3312. Document promotion to canary
+- [ ] 3313. Define config for dr
+- [ ] 3314. Define deployment for dr
+- [ ] 3315. Define monitoring for dr
+- [ ] 3316. Define backup for dr
+- [ ] 3317. Define alerting for dr
+- [ ] 3318. Add smoke test for dr
+- [ ] 3319. Document promotion to dr
+
+## 41. Role matrix
+
+- [ ] 3320. Test participant with role DataProvider can be added
+- [ ] 3321. Test policy for role DataProvider on execute
+- [ ] 3322. Test policy for role DataProvider on define_circuit
+- [ ] 3323. Test audit captures role DataProvider
+- [ ] 3324. Document capabilities of role DataProvider
+- [ ] 3325. Test participant with role ComputationRunner can be added
+- [ ] 3326. Test policy for role ComputationRunner on execute
+- [ ] 3327. Test policy for role ComputationRunner on define_circuit
+- [ ] 3328. Test audit captures role ComputationRunner
+- [ ] 3329. Document capabilities of role ComputationRunner
+- [ ] 3330. Test participant with role Auditor can be added
+- [ ] 3331. Test policy for role Auditor on execute
+- [ ] 3332. Test policy for role Auditor on define_circuit
+- [ ] 3333. Test audit captures role Auditor
+- [ ] 3334. Document capabilities of role Auditor
+- [ ] 3335. Test participant with role Administrator can be added
+- [ ] 3336. Test policy for role Administrator on execute
+- [ ] 3337. Test policy for role Administrator on define_circuit
+- [ ] 3338. Test audit captures role Administrator
+- [ ] 3339. Document capabilities of role Administrator
+
+## 42. Session status matrix
+
+- [ ] 3340. Test valid transitions into Created
+- [ ] 3341. Test invalid transitions into Created
+- [ ] 3342. Test API behavior when session is Created
+- [ ] 3343. Test persistence of Created state
+- [ ] 3344. Document semantics of Created
+- [ ] 3345. Test valid transitions into Configured
+- [ ] 3346. Test invalid transitions into Configured
+- [ ] 3347. Test API behavior when session is Configured
+- [ ] 3348. Test persistence of Configured state
+- [ ] 3349. Document semantics of Configured
+- [ ] 3350. Test valid transitions into Running
+- [ ] 3351. Test invalid transitions into Running
+- [ ] 3352. Test API behavior when session is Running
+- [ ] 3353. Test persistence of Running state
+- [ ] 3354. Document semantics of Running
+- [ ] 3355. Test valid transitions into Completed
+- [ ] 3356. Test invalid transitions into Completed
+- [ ] 3357. Test API behavior when session is Completed
+- [ ] 3358. Test persistence of Completed state
+- [ ] 3359. Document semantics of Completed
+- [ ] 3360. Test valid transitions into Failed
+- [ ] 3361. Test invalid transitions into Failed
+- [ ] 3362. Test API behavior when session is Failed
+- [ ] 3363. Test persistence of Failed state
+- [ ] 3364. Document semantics of Failed
+- [ ] 3365. Test valid transitions into Cancelled
+- [ ] 3366. Test invalid transitions into Cancelled
+- [ ] 3367. Test API behavior when session is Cancelled
+- [ ] 3368. Test persistence of Cancelled state
+- [ ] 3369. Document semantics of Cancelled
+
+## 43. Wire scenarios for online phase
+
+- [ ] 3370. Verify online phase output for empty
+- [ ] 3371. Verify online phase MACs for empty
+- [ ] 3372. Verify online phase triples consumed for empty
+- [ ] 3373. Verify online phase state map size for empty
+- [ ] 3374. Verify online phase output for single-input
+- [ ] 3375. Verify online phase MACs for single-input
+- [ ] 3376. Verify online phase triples consumed for single-input
+- [ ] 3377. Verify online phase state map size for single-input
+- [ ] 3378. Verify online phase output for multi-input
+- [ ] 3379. Verify online phase MACs for multi-input
+- [ ] 3380. Verify online phase triples consumed for multi-input
+- [ ] 3381. Verify online phase state map size for multi-input
+- [ ] 3382. Verify online phase output for deep-chain
+- [ ] 3383. Verify online phase MACs for deep-chain
+- [ ] 3384. Verify online phase triples consumed for deep-chain
+- [ ] 3385. Verify online phase state map size for deep-chain
+- [ ] 3386. Verify online phase output for wide-fanin
+- [ ] 3387. Verify online phase MACs for wide-fanin
+- [ ] 3388. Verify online phase triples consumed for wide-fanin
+- [ ] 3389. Verify online phase state map size for wide-fanin
+- [ ] 3390. Verify online phase output for with-const
+- [ ] 3391. Verify online phase MACs for with-const
+- [ ] 3392. Verify online phase triples consumed for with-const
+- [ ] 3393. Verify online phase state map size for with-const
+- [ ] 3394. Verify online phase output for with-output-reveal
+- [ ] 3395. Verify online phase MACs for with-output-reveal
+- [ ] 3396. Verify online phase triples consumed for with-output-reveal
+- [ ] 3397. Verify online phase state map size for with-output-reveal
+- [ ] 3398. Verify online phase output for repeated-wires
+- [ ] 3399. Verify online phase MACs for repeated-wires
+- [ ] 3400. Verify online phase triples consumed for repeated-wires
+- [ ] 3401. Verify online phase state map size for repeated-wires
+- [ ] 3402. Verify online phase output for invalid-ref
+- [ ] 3403. Verify online phase MACs for invalid-ref
+- [ ] 3404. Verify online phase triples consumed for invalid-ref
+- [ ] 3405. Verify online phase state map size for invalid-ref
+- [ ] 3406. Verify online phase output for party-out-of-range
+- [ ] 3407. Verify online phase MACs for party-out-of-range
+- [ ] 3408. Verify online phase triples consumed for party-out-of-range
+- [ ] 3409. Verify online phase state map size for party-out-of-range
+- [ ] 3410. Verify online phase output for negation-heavy
+- [ ] 3411. Verify online phase MACs for negation-heavy
+- [ ] 3412. Verify online phase triples consumed for negation-heavy
+- [ ] 3413. Verify online phase state map size for negation-heavy
+- [ ] 3414. Verify online phase output for mixed-gates
+- [ ] 3415. Verify online phase MACs for mixed-gates
+- [ ] 3416. Verify online phase triples consumed for mixed-gates
+- [ ] 3417. Verify online phase state map size for mixed-gates
+
+## 44. Repository hygiene matrix
+
+- [ ] 3418. Create .gitignore if missing
+- [ ] 3419. Review .gitignore content for accuracy
+- [ ] 3420. Link .gitignore from README
+- [ ] 3421. Verify .gitignore is not gitignored
+- [ ] 3422. Create .dockerignore if missing
+- [ ] 3423. Review .dockerignore content for accuracy
+- [ ] 3424. Link .dockerignore from README
+- [ ] 3425. Verify .dockerignore is not gitignored
+- [ ] 3426. Create .editorconfig if missing
+- [ ] 3427. Review .editorconfig content for accuracy
+- [ ] 3428. Link .editorconfig from README
+- [ ] 3429. Verify .editorconfig is not gitignored
+- [ ] 3430. Create .gitattributes if missing
+- [ ] 3431. Review .gitattributes content for accuracy
+- [ ] 3432. Link .gitattributes from README
+- [ ] 3433. Verify .gitattributes is not gitignored
+- [ ] 3434. Create rustfmt.toml if missing
+- [ ] 3435. Review rustfmt.toml content for accuracy
+- [ ] 3436. Link rustfmt.toml from README
+- [ ] 3437. Verify rustfmt.toml is not gitignored
+- [ ] 3438. Create clippy.toml if missing
+- [ ] 3439. Review clippy.toml content for accuracy
+- [ ] 3440. Link clippy.toml from README
+- [ ] 3441. Verify clippy.toml is not gitignored
+- [ ] 3442. Create deny.toml if missing
+- [ ] 3443. Review deny.toml content for accuracy
+- [ ] 3444. Link deny.toml from README
+- [ ] 3445. Verify deny.toml is not gitignored
+- [ ] 3446. Create rust-toolchain.toml if missing
+- [ ] 3447. Review rust-toolchain.toml content for accuracy
+- [ ] 3448. Link rust-toolchain.toml from README
+- [ ] 3449. Verify rust-toolchain.toml is not gitignored
+- [ ] 3450. Create LICENSE if missing
+- [ ] 3451. Review LICENSE content for accuracy
+- [ ] 3452. Link LICENSE from README
+- [ ] 3453. Verify LICENSE is not gitignored
+- [ ] 3454. Create NOTICE if missing
+- [ ] 3455. Review NOTICE content for accuracy
+- [ ] 3456. Link NOTICE from README
+- [ ] 3457. Verify NOTICE is not gitignored
+- [ ] 3458. Create SECURITY.md if missing
+- [ ] 3459. Review SECURITY.md content for accuracy
+- [ ] 3460. Link SECURITY.md from README
+- [ ] 3461. Verify SECURITY.md is not gitignored
+- [ ] 3462. Create CONTRIBUTING.md if missing
+- [ ] 3463. Review CONTRIBUTING.md content for accuracy
+- [ ] 3464. Link CONTRIBUTING.md from README
+- [ ] 3465. Verify CONTRIBUTING.md is not gitignored
+- [ ] 3466. Create CODE_OF_CONDUCT.md if missing
+- [ ] 3467. Review CODE_OF_CONDUCT.md content for accuracy
+- [ ] 3468. Link CODE_OF_CONDUCT.md from README
+- [ ] 3469. Verify CODE_OF_CONDUCT.md is not gitignored
+- [ ] 3470. Create CHANGELOG.md if missing
+- [ ] 3471. Review CHANGELOG.md content for accuracy
+- [ ] 3472. Link CHANGELOG.md from README
+- [ ] 3473. Verify CHANGELOG.md is not gitignored
+
+## 45. Document cross-reference matrix
+
+- [ ] 3474. Ensure README docs exist and are non-empty
+- [ ] 3475. Ensure README docs are linked from README
+- [ ] 3476. Ensure README docs match code behavior
+- [ ] 3477. Add version notes to README
+- [ ] 3478. Add examples to README
+- [ ] 3479. Review README for stale information
+- [ ] 3480. Add search keywords to README
+- [ ] 3481. Ensure README renders on docs site
+- [ ] 3482. Ensure DEPLOYMENT docs exist and are non-empty
+- [ ] 3483. Ensure DEPLOYMENT docs are linked from README
+- [ ] 3484. Ensure DEPLOYMENT docs match code behavior
+- [ ] 3485. Add version notes to DEPLOYMENT
+- [ ] 3486. Add examples to DEPLOYMENT
+- [ ] 3487. Review DEPLOYMENT for stale information
+- [ ] 3488. Add search keywords to DEPLOYMENT
+- [ ] 3489. Ensure DEPLOYMENT renders on docs site
+- [ ] 3490. Ensure architecture docs exist and are non-empty
+- [ ] 3491. Ensure architecture docs are linked from README
+- [ ] 3492. Ensure architecture docs match code behavior
+- [ ] 3493. Add version notes to architecture
+- [ ] 3494. Add examples to architecture
+- [ ] 3495. Review architecture for stale information
+- [ ] 3496. Add search keywords to architecture
+- [ ] 3497. Ensure architecture renders on docs site
+- [ ] 3498. Ensure threat-model docs exist and are non-empty
+- [ ] 3499. Ensure threat-model docs are linked from README
+- [ ] 3500. Ensure threat-model docs match code behavior
+- [ ] 3501. Add version notes to threat-model
+- [ ] 3502. Add examples to threat-model
+- [ ] 3503. Review threat-model for stale information
+- [ ] 3504. Add search keywords to threat-model
+- [ ] 3505. Ensure threat-model renders on docs site
+- [ ] 3506. Ensure security-policy docs exist and are non-empty
+- [ ] 3507. Ensure security-policy docs are linked from README
+- [ ] 3508. Ensure security-policy docs match code behavior
+- [ ] 3509. Add version notes to security-policy
+- [ ] 3510. Add examples to security-policy
+- [ ] 3511. Review security-policy for stale information
+- [ ] 3512. Add search keywords to security-policy
+- [ ] 3513. Ensure security-policy renders on docs site
+- [ ] 3514. Ensure api-reference docs exist and are non-empty
+- [ ] 3515. Ensure api-reference docs are linked from README
+- [ ] 3516. Ensure api-reference docs match code behavior
+- [ ] 3517. Add version notes to api-reference
+- [ ] 3518. Add examples to api-reference
+- [ ] 3519. Review api-reference for stale information
+- [ ] 3520. Add search keywords to api-reference
+- [ ] 3521. Ensure api-reference renders on docs site
+- [ ] 3522. Ensure openapi docs exist and are non-empty
+- [ ] 3523. Ensure openapi docs are linked from README
+- [ ] 3524. Ensure openapi docs match code behavior
+- [ ] 3525. Add version notes to openapi
+- [ ] 3526. Add examples to openapi
+- [ ] 3527. Review openapi for stale information
+- [ ] 3528. Add search keywords to openapi
+- [ ] 3529. Ensure openapi renders on docs site
+- [ ] 3530. Ensure grpc-reference docs exist and are non-empty
+- [ ] 3531. Ensure grpc-reference docs are linked from README
+- [ ] 3532. Ensure grpc-reference docs match code behavior
+- [ ] 3533. Add version notes to grpc-reference
+- [ ] 3534. Add examples to grpc-reference
+- [ ] 3535. Review grpc-reference for stale information
+- [ ] 3536. Add search keywords to grpc-reference
+- [ ] 3537. Ensure grpc-reference renders on docs site
+- [ ] 3538. Ensure runbook docs exist and are non-empty
+- [ ] 3539. Ensure runbook docs are linked from README
+- [ ] 3540. Ensure runbook docs match code behavior
+- [ ] 3541. Add version notes to runbook
+- [ ] 3542. Add examples to runbook
+- [ ] 3543. Review runbook for stale information
+- [ ] 3544. Add search keywords to runbook
+- [ ] 3545. Ensure runbook renders on docs site
+- [ ] 3546. Ensure troubleshooting docs exist and are non-empty
+- [ ] 3547. Ensure troubleshooting docs are linked from README
+- [ ] 3548. Ensure troubleshooting docs match code behavior
+- [ ] 3549. Add version notes to troubleshooting
+- [ ] 3550. Add examples to troubleshooting
+- [ ] 3551. Review troubleshooting for stale information
+- [ ] 3552. Add search keywords to troubleshooting
+- [ ] 3553. Ensure troubleshooting renders on docs site
+- [ ] 3554. Ensure onboarding docs exist and are non-empty
+- [ ] 3555. Ensure onboarding docs are linked from README
+- [ ] 3556. Ensure onboarding docs match code behavior
+- [ ] 3557. Add version notes to onboarding
+- [ ] 3558. Add examples to onboarding
+- [ ] 3559. Review onboarding for stale information
+- [ ] 3560. Add search keywords to onboarding
+- [ ] 3561. Ensure onboarding renders on docs site
+- [ ] 3562. Ensure contribution docs exist and are non-empty
+- [ ] 3563. Ensure contribution docs are linked from README
+- [ ] 3564. Ensure contribution docs match code behavior
+- [ ] 3565. Add version notes to contribution
+- [ ] 3566. Add examples to contribution
+- [ ] 3567. Review contribution for stale information
+- [ ] 3568. Add search keywords to contribution
+- [ ] 3569. Ensure contribution renders on docs site
+- [ ] 3570. Ensure governance docs exist and are non-empty
+- [ ] 3571. Ensure governance docs are linked from README
+- [ ] 3572. Ensure governance docs match code behavior
+- [ ] 3573. Add version notes to governance
+- [ ] 3574. Add examples to governance
+- [ ] 3575. Review governance for stale information
+- [ ] 3576. Add search keywords to governance
+- [ ] 3577. Ensure governance renders on docs site
+- [ ] 3578. Ensure benchmarks docs exist and are non-empty
+- [ ] 3579. Ensure benchmarks docs are linked from README
+- [ ] 3580. Ensure benchmarks docs match code behavior
+- [ ] 3581. Add version notes to benchmarks
+- [ ] 3582. Add examples to benchmarks
+- [ ] 3583. Review benchmarks for stale information
+- [ ] 3584. Add search keywords to benchmarks
+- [ ] 3585. Ensure benchmarks renders on docs site
+- [ ] 3586. Ensure operations docs exist and are non-empty
+- [ ] 3587. Ensure operations docs are linked from README
+- [ ] 3588. Ensure operations docs match code behavior
+- [ ] 3589. Add version notes to operations
+- [ ] 3590. Add examples to operations
+- [ ] 3591. Review operations for stale information
+- [ ] 3592. Add search keywords to operations
+- [ ] 3593. Ensure operations renders on docs site
+- [ ] 3594. Ensure compliance docs exist and are non-empty
+- [ ] 3595. Ensure compliance docs are linked from README
+- [ ] 3596. Ensure compliance docs match code behavior
+- [ ] 3597. Add version notes to compliance
+- [ ] 3598. Add examples to compliance
+- [ ] 3599. Review compliance for stale information
+- [ ] 3600. Add search keywords to compliance
+- [ ] 3601. Ensure compliance renders on docs site
+- [ ] 3602. Ensure glossary docs exist and are non-empty
+- [ ] 3603. Ensure glossary docs are linked from README
+- [ ] 3604. Ensure glossary docs match code behavior
+- [ ] 3605. Add version notes to glossary
+- [ ] 3606. Add examples to glossary
+- [ ] 3607. Review glossary for stale information
+- [ ] 3608. Add search keywords to glossary
+- [ ] 3609. Ensure glossary renders on docs site
+- [ ] 3610. Ensure faq docs exist and are non-empty
+- [ ] 3611. Ensure faq docs are linked from README
+- [ ] 3612. Ensure faq docs match code behavior
+- [ ] 3613. Add version notes to faq
+- [ ] 3614. Add examples to faq
+- [ ] 3615. Review faq for stale information
+- [ ] 3616. Add search keywords to faq
+- [ ] 3617. Ensure faq renders on docs site
+- [ ] 3618. Ensure release-notes docs exist and are non-empty
+- [ ] 3619. Ensure release-notes docs are linked from README
+- [ ] 3620. Ensure release-notes docs match code behavior
+- [ ] 3621. Add version notes to release-notes
+- [ ] 3622. Add examples to release-notes
+- [ ] 3623. Review release-notes for stale information
+- [ ] 3624. Add search keywords to release-notes
+- [ ] 3625. Ensure release-notes renders on docs site
+- [ ] 3626. Ensure changelog docs exist and are non-empty
+- [ ] 3627. Ensure changelog docs are linked from README
+- [ ] 3628. Ensure changelog docs match code behavior
+- [ ] 3629. Add version notes to changelog
+- [ ] 3630. Add examples to changelog
+- [ ] 3631. Review changelog for stale information
+- [ ] 3632. Add search keywords to changelog
+- [ ] 3633. Ensure changelog renders on docs site
+- [ ] 3634. Ensure roadmap docs exist and are non-empty
+- [ ] 3635. Ensure roadmap docs are linked from README
+- [ ] 3636. Ensure roadmap docs match code behavior
+- [ ] 3637. Add version notes to roadmap
+- [ ] 3638. Add examples to roadmap
+- [ ] 3639. Review roadmap for stale information
+- [ ] 3640. Add search keywords to roadmap
+- [ ] 3641. Ensure roadmap renders on docs site
+- [ ] 3642. Ensure code-of-conduct docs exist and are non-empty
+- [ ] 3643. Ensure code-of-conduct docs are linked from README
+- [ ] 3644. Ensure code-of-conduct docs match code behavior
+- [ ] 3645. Add version notes to code-of-conduct
+- [ ] 3646. Add examples to code-of-conduct
+- [ ] 3647. Review code-of-conduct for stale information
+- [ ] 3648. Add search keywords to code-of-conduct
+- [ ] 3649. Ensure code-of-conduct renders on docs site
+
+## 46. Gate x Gate composition matrix
+
+- [ ] 3650. Test circuit composition: Input then Input
+- [ ] 3651. Test error handling when Input feeds invalid wire to Input
+- [ ] 3652. Test circuit composition: Input then Const
+- [ ] 3653. Test error handling when Input feeds invalid wire to Const
+- [ ] 3654. Test circuit composition: Input then Add
+- [ ] 3655. Test error handling when Input feeds invalid wire to Add
+- [ ] 3656. Test circuit composition: Input then Sub
+- [ ] 3657. Test error handling when Input feeds invalid wire to Sub
+- [ ] 3658. Test circuit composition: Input then Mul
+- [ ] 3659. Test error handling when Input feeds invalid wire to Mul
+- [ ] 3660. Test circuit composition: Input then ScalarMul
+- [ ] 3661. Test error handling when Input feeds invalid wire to ScalarMul
+- [ ] 3662. Test circuit composition: Input then Neg
+- [ ] 3663. Test error handling when Input feeds invalid wire to Neg
+- [ ] 3664. Test circuit composition: Input then Output
+- [ ] 3665. Test error handling when Input feeds invalid wire to Output
+- [ ] 3666. Test circuit composition: Input then Equal
+- [ ] 3667. Test error handling when Input feeds invalid wire to Equal
+- [ ] 3668. Test circuit composition: Input then GreaterThan
+- [ ] 3669. Test error handling when Input feeds invalid wire to GreaterThan
+- [ ] 3670. Test circuit composition: Const then Input
+- [ ] 3671. Test error handling when Const feeds invalid wire to Input
+- [ ] 3672. Test circuit composition: Const then Const
+- [ ] 3673. Test error handling when Const feeds invalid wire to Const
+- [ ] 3674. Test circuit composition: Const then Add
+- [ ] 3675. Test error handling when Const feeds invalid wire to Add
+- [ ] 3676. Test circuit composition: Const then Sub
+- [ ] 3677. Test error handling when Const feeds invalid wire to Sub
+- [ ] 3678. Test circuit composition: Const then Mul
+- [ ] 3679. Test error handling when Const feeds invalid wire to Mul
+- [ ] 3680. Test circuit composition: Const then ScalarMul
+- [ ] 3681. Test error handling when Const feeds invalid wire to ScalarMul
+- [ ] 3682. Test circuit composition: Const then Neg
+- [ ] 3683. Test error handling when Const feeds invalid wire to Neg
+- [ ] 3684. Test circuit composition: Const then Output
+- [ ] 3685. Test error handling when Const feeds invalid wire to Output
+- [ ] 3686. Test circuit composition: Const then Equal
+- [ ] 3687. Test error handling when Const feeds invalid wire to Equal
+- [ ] 3688. Test circuit composition: Const then GreaterThan
+- [ ] 3689. Test error handling when Const feeds invalid wire to GreaterThan
+- [ ] 3690. Test circuit composition: Add then Input
+- [ ] 3691. Test error handling when Add feeds invalid wire to Input
+- [ ] 3692. Test circuit composition: Add then Const
+- [ ] 3693. Test error handling when Add feeds invalid wire to Const
+- [ ] 3694. Test circuit composition: Add then Add
+- [ ] 3695. Test error handling when Add feeds invalid wire to Add
+- [ ] 3696. Test circuit composition: Add then Sub
+- [ ] 3697. Test error handling when Add feeds invalid wire to Sub
+- [ ] 3698. Test circuit composition: Add then Mul
+- [ ] 3699. Test error handling when Add feeds invalid wire to Mul
+- [ ] 3700. Test circuit composition: Add then ScalarMul
+- [ ] 3701. Test error handling when Add feeds invalid wire to ScalarMul
+- [ ] 3702. Test circuit composition: Add then Neg
+- [ ] 3703. Test error handling when Add feeds invalid wire to Neg
+- [ ] 3704. Test circuit composition: Add then Output
+- [ ] 3705. Test error handling when Add feeds invalid wire to Output
+- [ ] 3706. Test circuit composition: Add then Equal
+- [ ] 3707. Test error handling when Add feeds invalid wire to Equal
+- [ ] 3708. Test circuit composition: Add then GreaterThan
+- [ ] 3709. Test error handling when Add feeds invalid wire to GreaterThan
+- [ ] 3710. Test circuit composition: Sub then Input
+- [ ] 3711. Test error handling when Sub feeds invalid wire to Input
+- [ ] 3712. Test circuit composition: Sub then Const
+- [ ] 3713. Test error handling when Sub feeds invalid wire to Const
+- [ ] 3714. Test circuit composition: Sub then Add
+- [ ] 3715. Test error handling when Sub feeds invalid wire to Add
+- [ ] 3716. Test circuit composition: Sub then Sub
+- [ ] 3717. Test error handling when Sub feeds invalid wire to Sub
+- [ ] 3718. Test circuit composition: Sub then Mul
+- [ ] 3719. Test error handling when Sub feeds invalid wire to Mul
+- [ ] 3720. Test circuit composition: Sub then ScalarMul
+- [ ] 3721. Test error handling when Sub feeds invalid wire to ScalarMul
+- [ ] 3722. Test circuit composition: Sub then Neg
+- [ ] 3723. Test error handling when Sub feeds invalid wire to Neg
+- [ ] 3724. Test circuit composition: Sub then Output
+- [ ] 3725. Test error handling when Sub feeds invalid wire to Output
+- [ ] 3726. Test circuit composition: Sub then Equal
+- [ ] 3727. Test error handling when Sub feeds invalid wire to Equal
+- [ ] 3728. Test circuit composition: Sub then GreaterThan
+- [ ] 3729. Test error handling when Sub feeds invalid wire to GreaterThan
+- [ ] 3730. Test circuit composition: Mul then Input
+- [ ] 3731. Test error handling when Mul feeds invalid wire to Input
+- [ ] 3732. Test circuit composition: Mul then Const
+- [ ] 3733. Test error handling when Mul feeds invalid wire to Const
+- [ ] 3734. Test circuit composition: Mul then Add
+- [ ] 3735. Test error handling when Mul feeds invalid wire to Add
+- [ ] 3736. Test circuit composition: Mul then Sub
+- [ ] 3737. Test error handling when Mul feeds invalid wire to Sub
+- [ ] 3738. Test circuit composition: Mul then Mul
+- [ ] 3739. Test error handling when Mul feeds invalid wire to Mul
+- [ ] 3740. Test circuit composition: Mul then ScalarMul
+- [ ] 3741. Test error handling when Mul feeds invalid wire to ScalarMul
+- [ ] 3742. Test circuit composition: Mul then Neg
+- [ ] 3743. Test error handling when Mul feeds invalid wire to Neg
+- [ ] 3744. Test circuit composition: Mul then Output
+- [ ] 3745. Test error handling when Mul feeds invalid wire to Output
+- [ ] 3746. Test circuit composition: Mul then Equal
+- [ ] 3747. Test error handling when Mul feeds invalid wire to Equal
+- [ ] 3748. Test circuit composition: Mul then GreaterThan
+- [ ] 3749. Test error handling when Mul feeds invalid wire to GreaterThan
+- [ ] 3750. Test circuit composition: ScalarMul then Input
+- [ ] 3751. Test error handling when ScalarMul feeds invalid wire to Input
+- [ ] 3752. Test circuit composition: ScalarMul then Const
+- [ ] 3753. Test error handling when ScalarMul feeds invalid wire to Const
+- [ ] 3754. Test circuit composition: ScalarMul then Add
+- [ ] 3755. Test error handling when ScalarMul feeds invalid wire to Add
+- [ ] 3756. Test circuit composition: ScalarMul then Sub
+- [ ] 3757. Test error handling when ScalarMul feeds invalid wire to Sub
+- [ ] 3758. Test circuit composition: ScalarMul then Mul
+- [ ] 3759. Test error handling when ScalarMul feeds invalid wire to Mul
+- [ ] 3760. Test circuit composition: ScalarMul then ScalarMul
+- [ ] 3761. Test error handling when ScalarMul feeds invalid wire to ScalarMul
+- [ ] 3762. Test circuit composition: ScalarMul then Neg
+- [ ] 3763. Test error handling when ScalarMul feeds invalid wire to Neg
+- [ ] 3764. Test circuit composition: ScalarMul then Output
+- [ ] 3765. Test error handling when ScalarMul feeds invalid wire to Output
+- [ ] 3766. Test circuit composition: ScalarMul then Equal
+- [ ] 3767. Test error handling when ScalarMul feeds invalid wire to Equal
+- [ ] 3768. Test circuit composition: ScalarMul then GreaterThan
+- [ ] 3769. Test error handling when ScalarMul feeds invalid wire to GreaterThan
+- [ ] 3770. Test circuit composition: Neg then Input
+- [ ] 3771. Test error handling when Neg feeds invalid wire to Input
+- [ ] 3772. Test circuit composition: Neg then Const
+- [ ] 3773. Test error handling when Neg feeds invalid wire to Const
+- [ ] 3774. Test circuit composition: Neg then Add
+- [ ] 3775. Test error handling when Neg feeds invalid wire to Add
+- [ ] 3776. Test circuit composition: Neg then Sub
+- [ ] 3777. Test error handling when Neg feeds invalid wire to Sub
+- [ ] 3778. Test circuit composition: Neg then Mul
+- [ ] 3779. Test error handling when Neg feeds invalid wire to Mul
+- [ ] 3780. Test circuit composition: Neg then ScalarMul
+- [ ] 3781. Test error handling when Neg feeds invalid wire to ScalarMul
+- [ ] 3782. Test circuit composition: Neg then Neg
+- [ ] 3783. Test error handling when Neg feeds invalid wire to Neg
+- [ ] 3784. Test circuit composition: Neg then Output
+- [ ] 3785. Test error handling when Neg feeds invalid wire to Output
+- [ ] 3786. Test circuit composition: Neg then Equal
+- [ ] 3787. Test error handling when Neg feeds invalid wire to Equal
+- [ ] 3788. Test circuit composition: Neg then GreaterThan
+- [ ] 3789. Test error handling when Neg feeds invalid wire to GreaterThan
+- [ ] 3790. Test circuit composition: Output then Input
+- [ ] 3791. Test error handling when Output feeds invalid wire to Input
+- [ ] 3792. Test circuit composition: Output then Const
+- [ ] 3793. Test error handling when Output feeds invalid wire to Const
+- [ ] 3794. Test circuit composition: Output then Add
+- [ ] 3795. Test error handling when Output feeds invalid wire to Add
+- [ ] 3796. Test circuit composition: Output then Sub
+- [ ] 3797. Test error handling when Output feeds invalid wire to Sub
+- [ ] 3798. Test circuit composition: Output then Mul
+- [ ] 3799. Test error handling when Output feeds invalid wire to Mul
+- [ ] 3800. Test circuit composition: Output then ScalarMul
+- [ ] 3801. Test error handling when Output feeds invalid wire to ScalarMul
+- [ ] 3802. Test circuit composition: Output then Neg
+- [ ] 3803. Test error handling when Output feeds invalid wire to Neg
+- [ ] 3804. Test circuit composition: Output then Output
+- [ ] 3805. Test error handling when Output feeds invalid wire to Output
+- [ ] 3806. Test circuit composition: Output then Equal
+- [ ] 3807. Test error handling when Output feeds invalid wire to Equal
+- [ ] 3808. Test circuit composition: Output then GreaterThan
+- [ ] 3809. Test error handling when Output feeds invalid wire to GreaterThan
+- [ ] 3810. Test circuit composition: Equal then Input
+- [ ] 3811. Test error handling when Equal feeds invalid wire to Input
+- [ ] 3812. Test circuit composition: Equal then Const
+- [ ] 3813. Test error handling when Equal feeds invalid wire to Const
+- [ ] 3814. Test circuit composition: Equal then Add
+- [ ] 3815. Test error handling when Equal feeds invalid wire to Add
+- [ ] 3816. Test circuit composition: Equal then Sub
+- [ ] 3817. Test error handling when Equal feeds invalid wire to Sub
+- [ ] 3818. Test circuit composition: Equal then Mul
+- [ ] 3819. Test error handling when Equal feeds invalid wire to Mul
+- [ ] 3820. Test circuit composition: Equal then ScalarMul
+- [ ] 3821. Test error handling when Equal feeds invalid wire to ScalarMul
+- [ ] 3822. Test circuit composition: Equal then Neg
+- [ ] 3823. Test error handling when Equal feeds invalid wire to Neg
+- [ ] 3824. Test circuit composition: Equal then Output
+- [ ] 3825. Test error handling when Equal feeds invalid wire to Output
+- [ ] 3826. Test circuit composition: Equal then Equal
+- [ ] 3827. Test error handling when Equal feeds invalid wire to Equal
+- [ ] 3828. Test circuit composition: Equal then GreaterThan
+- [ ] 3829. Test error handling when Equal feeds invalid wire to GreaterThan
+- [ ] 3830. Test circuit composition: GreaterThan then Input
+- [ ] 3831. Test error handling when GreaterThan feeds invalid wire to Input
+- [ ] 3832. Test circuit composition: GreaterThan then Const
+- [ ] 3833. Test error handling when GreaterThan feeds invalid wire to Const
+- [ ] 3834. Test circuit composition: GreaterThan then Add
+- [ ] 3835. Test error handling when GreaterThan feeds invalid wire to Add
+- [ ] 3836. Test circuit composition: GreaterThan then Sub
+- [ ] 3837. Test error handling when GreaterThan feeds invalid wire to Sub
+- [ ] 3838. Test circuit composition: GreaterThan then Mul
+- [ ] 3839. Test error handling when GreaterThan feeds invalid wire to Mul
+- [ ] 3840. Test circuit composition: GreaterThan then ScalarMul
+- [ ] 3841. Test error handling when GreaterThan feeds invalid wire to ScalarMul
+- [ ] 3842. Test circuit composition: GreaterThan then Neg
+- [ ] 3843. Test error handling when GreaterThan feeds invalid wire to Neg
+- [ ] 3844. Test circuit composition: GreaterThan then Output
+- [ ] 3845. Test error handling when GreaterThan feeds invalid wire to Output
+- [ ] 3846. Test circuit composition: GreaterThan then Equal
+- [ ] 3847. Test error handling when GreaterThan feeds invalid wire to Equal
+- [ ] 3848. Test circuit composition: GreaterThan then GreaterThan
+- [ ] 3849. Test error handling when GreaterThan feeds invalid wire to GreaterThan
+
+## 47. Phase x PartyCount x Transport triple matrix
+
+- [ ] 3850. Integration test key_agreement with 3 parties over InMemory
+- [ ] 3851. Integration test key_agreement with 3 parties over Tcp
+- [ ] 3852. Integration test key_agreement with 5 parties over InMemory
+- [ ] 3853. Integration test key_agreement with 5 parties over Tcp
+- [ ] 3854. Integration test key_agreement with 10 parties over InMemory
+- [ ] 3855. Integration test key_agreement with 10 parties over Tcp
+- [ ] 3856. Integration test run_offline with 3 parties over InMemory
+- [ ] 3857. Integration test run_offline with 3 parties over Tcp
+- [ ] 3858. Integration test run_offline with 5 parties over InMemory
+- [ ] 3859. Integration test run_offline with 5 parties over Tcp
+- [ ] 3860. Integration test run_offline with 10 parties over InMemory
+- [ ] 3861. Integration test run_offline with 10 parties over Tcp
+- [ ] 3862. Integration test share_inputs with 3 parties over InMemory
+- [ ] 3863. Integration test share_inputs with 3 parties over Tcp
+- [ ] 3864. Integration test share_inputs with 5 parties over InMemory
+- [ ] 3865. Integration test share_inputs with 5 parties over Tcp
+- [ ] 3866. Integration test share_inputs with 10 parties over InMemory
+- [ ] 3867. Integration test share_inputs with 10 parties over Tcp
+- [ ] 3868. Integration test run_online with 3 parties over InMemory
+- [ ] 3869. Integration test run_online with 3 parties over Tcp
+- [ ] 3870. Integration test run_online with 5 parties over InMemory
+- [ ] 3871. Integration test run_online with 5 parties over Tcp
+- [ ] 3872. Integration test run_online with 10 parties over InMemory
+- [ ] 3873. Integration test run_online with 10 parties over Tcp
+- [ ] 3874. Integration test reconstruct_outputs with 3 parties over InMemory
+- [ ] 3875. Integration test reconstruct_outputs with 3 parties over Tcp
+- [ ] 3876. Integration test reconstruct_outputs with 5 parties over InMemory
+- [ ] 3877. Integration test reconstruct_outputs with 5 parties over Tcp
+- [ ] 3878. Integration test reconstruct_outputs with 10 parties over InMemory
+- [ ] 3879. Integration test reconstruct_outputs with 10 parties over Tcp
+
+## 48. Message type x Size matrix
+
+- [ ] 3880. Test KeyShareMessage serialize/deserialize at tiny size
+- [ ] 3881. Test KeyShareMessage transport send/recv at tiny size
+- [ ] 3882. Test KeyShareMessage serialize/deserialize at small size
+- [ ] 3883. Test KeyShareMessage transport send/recv at small size
+- [ ] 3884. Test KeyShareMessage serialize/deserialize at medium size
+- [ ] 3885. Test KeyShareMessage transport send/recv at medium size
+- [ ] 3886. Test KeyShareMessage serialize/deserialize at large size
+- [ ] 3887. Test KeyShareMessage transport send/recv at large size
+- [ ] 3888. Test KeyShareMessage serialize/deserialize at max-size size
+- [ ] 3889. Test KeyShareMessage transport send/recv at max-size size
+- [ ] 3890. Test KeyShareMessage serialize/deserialize at oversize size
+- [ ] 3891. Test KeyShareMessage transport send/recv at oversize size
+- [ ] 3892. Test OpenShareMessage serialize/deserialize at tiny size
+- [ ] 3893. Test OpenShareMessage transport send/recv at tiny size
+- [ ] 3894. Test OpenShareMessage serialize/deserialize at small size
+- [ ] 3895. Test OpenShareMessage transport send/recv at small size
+- [ ] 3896. Test OpenShareMessage serialize/deserialize at medium size
+- [ ] 3897. Test OpenShareMessage transport send/recv at medium size
+- [ ] 3898. Test OpenShareMessage serialize/deserialize at large size
+- [ ] 3899. Test OpenShareMessage transport send/recv at large size
+- [ ] 3900. Test OpenShareMessage serialize/deserialize at max-size size
+- [ ] 3901. Test OpenShareMessage transport send/recv at max-size size
+- [ ] 3902. Test OpenShareMessage serialize/deserialize at oversize size
+- [ ] 3903. Test OpenShareMessage transport send/recv at oversize size
+- [ ] 3904. Test InputShareMessage serialize/deserialize at tiny size
+- [ ] 3905. Test InputShareMessage transport send/recv at tiny size
+- [ ] 3906. Test InputShareMessage serialize/deserialize at small size
+- [ ] 3907. Test InputShareMessage transport send/recv at small size
+- [ ] 3908. Test InputShareMessage serialize/deserialize at medium size
+- [ ] 3909. Test InputShareMessage transport send/recv at medium size
+- [ ] 3910. Test InputShareMessage serialize/deserialize at large size
+- [ ] 3911. Test InputShareMessage transport send/recv at large size
+- [ ] 3912. Test InputShareMessage serialize/deserialize at max-size size
+- [ ] 3913. Test InputShareMessage transport send/recv at max-size size
+- [ ] 3914. Test InputShareMessage serialize/deserialize at oversize size
+- [ ] 3915. Test InputShareMessage transport send/recv at oversize size
+- [ ] 3916. Test OutputShareMessage serialize/deserialize at tiny size
+- [ ] 3917. Test OutputShareMessage transport send/recv at tiny size
+- [ ] 3918. Test OutputShareMessage serialize/deserialize at small size
+- [ ] 3919. Test OutputShareMessage transport send/recv at small size
+- [ ] 3920. Test OutputShareMessage serialize/deserialize at medium size
+- [ ] 3921. Test OutputShareMessage transport send/recv at medium size
+- [ ] 3922. Test OutputShareMessage serialize/deserialize at large size
+- [ ] 3923. Test OutputShareMessage transport send/recv at large size
+- [ ] 3924. Test OutputShareMessage serialize/deserialize at max-size size
+- [ ] 3925. Test OutputShareMessage transport send/recv at max-size size
+- [ ] 3926. Test OutputShareMessage serialize/deserialize at oversize size
+- [ ] 3927. Test OutputShareMessage transport send/recv at oversize size
+- [ ] 3928. Test MessageEnvelope serialize/deserialize at tiny size
+- [ ] 3929. Test MessageEnvelope transport send/recv at tiny size
+- [ ] 3930. Test MessageEnvelope serialize/deserialize at small size
+- [ ] 3931. Test MessageEnvelope transport send/recv at small size
+- [ ] 3932. Test MessageEnvelope serialize/deserialize at medium size
+- [ ] 3933. Test MessageEnvelope transport send/recv at medium size
+- [ ] 3934. Test MessageEnvelope serialize/deserialize at large size
+- [ ] 3935. Test MessageEnvelope transport send/recv at large size
+- [ ] 3936. Test MessageEnvelope serialize/deserialize at max-size size
+- [ ] 3937. Test MessageEnvelope transport send/recv at max-size size
+- [ ] 3938. Test MessageEnvelope serialize/deserialize at oversize size
+- [ ] 3939. Test MessageEnvelope transport send/recv at oversize size
+- [ ] 3940. Test ArithmeticCircuit serialize/deserialize at tiny size
+- [ ] 3941. Test ArithmeticCircuit transport send/recv at tiny size
+- [ ] 3942. Test ArithmeticCircuit serialize/deserialize at small size
+- [ ] 3943. Test ArithmeticCircuit transport send/recv at small size
+- [ ] 3944. Test ArithmeticCircuit serialize/deserialize at medium size
+- [ ] 3945. Test ArithmeticCircuit transport send/recv at medium size
+- [ ] 3946. Test ArithmeticCircuit serialize/deserialize at large size
+- [ ] 3947. Test ArithmeticCircuit transport send/recv at large size
+- [ ] 3948. Test ArithmeticCircuit serialize/deserialize at max-size size
+- [ ] 3949. Test ArithmeticCircuit transport send/recv at max-size size
+- [ ] 3950. Test ArithmeticCircuit serialize/deserialize at oversize size
+- [ ] 3951. Test ArithmeticCircuit transport send/recv at oversize size
+- [ ] 3952. Test BeaverTriple serialize/deserialize at tiny size
+- [ ] 3953. Test BeaverTriple transport send/recv at tiny size
+- [ ] 3954. Test BeaverTriple serialize/deserialize at small size
+- [ ] 3955. Test BeaverTriple transport send/recv at small size
+- [ ] 3956. Test BeaverTriple serialize/deserialize at medium size
+- [ ] 3957. Test BeaverTriple transport send/recv at medium size
+- [ ] 3958. Test BeaverTriple serialize/deserialize at large size
+- [ ] 3959. Test BeaverTriple transport send/recv at large size
+- [ ] 3960. Test BeaverTriple serialize/deserialize at max-size size
+- [ ] 3961. Test BeaverTriple transport send/recv at max-size size
+- [ ] 3962. Test BeaverTriple serialize/deserialize at oversize size
+- [ ] 3963. Test BeaverTriple transport send/recv at oversize size
+- [ ] 3964. Test AuthenticatedShare serialize/deserialize at tiny size
+- [ ] 3965. Test AuthenticatedShare transport send/recv at tiny size
+- [ ] 3966. Test AuthenticatedShare serialize/deserialize at small size
+- [ ] 3967. Test AuthenticatedShare transport send/recv at small size
+- [ ] 3968. Test AuthenticatedShare serialize/deserialize at medium size
+- [ ] 3969. Test AuthenticatedShare transport send/recv at medium size
+- [ ] 3970. Test AuthenticatedShare serialize/deserialize at large size
+- [ ] 3971. Test AuthenticatedShare transport send/recv at large size
+- [ ] 3972. Test AuthenticatedShare serialize/deserialize at max-size size
+- [ ] 3973. Test AuthenticatedShare transport send/recv at max-size size
+- [ ] 3974. Test AuthenticatedShare serialize/deserialize at oversize size
+- [ ] 3975. Test AuthenticatedShare transport send/recv at oversize size
+
+## 49. API method x payload matrix
+
+- [ ] 3976. Test /health with valid payload
+- [ ] 3977. Test /health with missing required field
+- [ ] 3978. Test /health with null field
+- [ ] 3979. Test /health with wrong type field
+- [ ] 3980. Test /health with extra unknown field
+- [ ] 3981. Test /health with empty collection field
+- [ ] 3982. Test /health with maximum-size payload
+- [ ] 3983. Test /health with Unicode strings
+- [ ] 3984. Test /health with control characters
+- [ ] 3985. Test /health with very long string
+- [ ] 3986. Test POST /sessions with valid payload
+- [ ] 3987. Test POST /sessions with missing required field
+- [ ] 3988. Test POST /sessions with null field
+- [ ] 3989. Test POST /sessions with wrong type field
+- [ ] 3990. Test POST /sessions with extra unknown field
+- [ ] 3991. Test POST /sessions with empty collection field
+- [ ] 3992. Test POST /sessions with maximum-size payload
+- [ ] 3993. Test POST /sessions with Unicode strings
+- [ ] 3994. Test POST /sessions with control characters
+- [ ] 3995. Test POST /sessions with very long string
+- [ ] 3996. Test GET /sessions/:id with valid payload
+- [ ] 3997. Test GET /sessions/:id with missing required field
+- [ ] 3998. Test GET /sessions/:id with null field
+- [ ] 3999. Test GET /sessions/:id with wrong type field
+- [ ] 4000. Test GET /sessions/:id with extra unknown field
+- [ ] 4001. Test GET /sessions/:id with empty collection field
+- [ ] 4002. Test GET /sessions/:id with maximum-size payload
+- [ ] 4003. Test GET /sessions/:id with Unicode strings
+- [ ] 4004. Test GET /sessions/:id with control characters
+- [ ] 4005. Test GET /sessions/:id with very long string
+- [ ] 4006. Test POST /sessions/:id/participants with valid payload
+- [ ] 4007. Test POST /sessions/:id/participants with missing required field
+- [ ] 4008. Test POST /sessions/:id/participants with null field
+- [ ] 4009. Test POST /sessions/:id/participants with wrong type field
+- [ ] 4010. Test POST /sessions/:id/participants with extra unknown field
+- [ ] 4011. Test POST /sessions/:id/participants with empty collection field
+- [ ] 4012. Test POST /sessions/:id/participants with maximum-size payload
+- [ ] 4013. Test POST /sessions/:id/participants with Unicode strings
+- [ ] 4014. Test POST /sessions/:id/participants with control characters
+- [ ] 4015. Test POST /sessions/:id/participants with very long string
+- [ ] 4016. Test POST /sessions/:id/execute with valid payload
+- [ ] 4017. Test POST /sessions/:id/execute with missing required field
+- [ ] 4018. Test POST /sessions/:id/execute with null field
+- [ ] 4019. Test POST /sessions/:id/execute with wrong type field
+- [ ] 4020. Test POST /sessions/:id/execute with extra unknown field
+- [ ] 4021. Test POST /sessions/:id/execute with empty collection field
+- [ ] 4022. Test POST /sessions/:id/execute with maximum-size payload
+- [ ] 4023. Test POST /sessions/:id/execute with Unicode strings
+- [ ] 4024. Test POST /sessions/:id/execute with control characters
+- [ ] 4025. Test POST /sessions/:id/execute with very long string
+- [ ] 4026. Test GET /sessions/:id/results with valid payload
+- [ ] 4027. Test GET /sessions/:id/results with missing required field
+- [ ] 4028. Test GET /sessions/:id/results with null field
+- [ ] 4029. Test GET /sessions/:id/results with wrong type field
+- [ ] 4030. Test GET /sessions/:id/results with extra unknown field
+- [ ] 4031. Test GET /sessions/:id/results with empty collection field
+- [ ] 4032. Test GET /sessions/:id/results with maximum-size payload
+- [ ] 4033. Test GET /sessions/:id/results with Unicode strings
+- [ ] 4034. Test GET /sessions/:id/results with control characters
+- [ ] 4035. Test GET /sessions/:id/results with very long string
+
+## 50. Security scenario matrix
+
+- [ ] 4036. Test defense against unauth-access
+- [ ] 4037. Add regression test for unauth-access
+- [ ] 4038. Document mitigation for unauth-access
+- [ ] 4039. Test defense against privilege-escalation
+- [ ] 4040. Add regression test for privilege-escalation
+- [ ] 4041. Document mitigation for privilege-escalation
+- [ ] 4042. Test defense against injection
+- [ ] 4043. Add regression test for injection
+- [ ] 4044. Document mitigation for injection
+- [ ] 4045. Test defense against path-traversal
+- [ ] 4046. Add regression test for path-traversal
+- [ ] 4047. Document mitigation for path-traversal
+- [ ] 4048. Test defense against ssrf
+- [ ] 4049. Add regression test for ssrf
+- [ ] 4050. Document mitigation for ssrf
+- [ ] 4051. Test defense against xss-in-logs
+- [ ] 4052. Add regression test for xss-in-logs
+- [ ] 4053. Document mitigation for xss-in-logs
+- [ ] 4054. Test defense against command-injection
+- [ ] 4055. Add regression test for command-injection
+- [ ] 4056. Document mitigation for command-injection
+- [ ] 4057. Test defense against deserialization-attack
+- [ ] 4058. Add regression test for deserialization-attack
+- [ ] 4059. Document mitigation for deserialization-attack
+- [ ] 4060. Test defense against length-prefix-bomb
+- [ ] 4061. Add regression test for length-prefix-bomb
+- [ ] 4062. Document mitigation for length-prefix-bomb
+- [ ] 4063. Test defense against zip-bomb
+- [ ] 4064. Add regression test for zip-bomb
+- [ ] 4065. Document mitigation for zip-bomb
+- [ ] 4066. Test defense against replay
+- [ ] 4067. Add regression test for replay
+- [ ] 4068. Document mitigation for replay
+- [ ] 4069. Test defense against timing-attack
+- [ ] 4070. Add regression test for timing-attack
+- [ ] 4071. Document mitigation for timing-attack
+- [ ] 4072. Test defense against brute-force-login
+- [ ] 4073. Add regression test for brute-force-login
+- [ ] 4074. Document mitigation for brute-force-login
+- [ ] 4075. Test defense against token-replay
+- [ ] 4076. Add regression test for token-replay
+- [ ] 4077. Document mitigation for token-replay
+- [ ] 4078. Test defense against sid-guessing
+- [ ] 4079. Add regression test for sid-guessing
+- [ ] 4080. Document mitigation for sid-guessing
+
+## 51. FHE x Protocol hybrid matrix
+
+- [ ] 4081. Test execution in pure-spdz
+- [ ] 4082. Benchmark execution in pure-spdz
+- [ ] 4083. Document pure-spdz selection logic
+- [ ] 4084. Add integration test for pure-spdz
+- [ ] 4085. Test execution in pure-fhe
+- [ ] 4086. Benchmark execution in pure-fhe
+- [ ] 4087. Document pure-fhe selection logic
+- [ ] 4088. Add integration test for pure-fhe
+- [ ] 4089. Test execution in hybrid-spdz-fhe
+- [ ] 4090. Benchmark execution in hybrid-spdz-fhe
+- [ ] 4091. Document hybrid-spdz-fhe selection logic
+- [ ] 4092. Add integration test for hybrid-spdz-fhe
+
+## 52. Party lifecycle matrix
+
+- [ ] 4093. Test party join handling
+- [ ] 4094. Test session state after party join
+- [ ] 4095. Test audit log for party join
+- [ ] 4096. Document party join semantics
+- [ ] 4097. Test party leave handling
+- [ ] 4098. Test session state after party leave
+- [ ] 4099. Test audit log for party leave
+- [ ] 4100. Document party leave semantics
+- [ ] 4101. Test party crash handling
+- [ ] 4102. Test session state after party crash
+- [ ] 4103. Test audit log for party crash
+- [ ] 4104. Document party crash semantics
+- [ ] 4105. Test party rejoin handling
+- [ ] 4106. Test session state after party rejoin
+- [ ] 4107. Test audit log for party rejoin
+- [ ] 4108. Document party rejoin semantics
+- [ ] 4109. Test party late-join handling
+- [ ] 4110. Test session state after party late-join
+- [ ] 4111. Test audit log for party late-join
+- [ ] 4112. Document party late-join semantics
+- [ ] 4113. Test party duplicate-party handling
+- [ ] 4114. Test session state after party duplicate-party
+- [ ] 4115. Test audit log for party duplicate-party
+- [ ] 4116. Document party duplicate-party semantics
+- [ ] 4117. Test party rename handling
+- [ ] 4118. Test session state after party rename
+- [ ] 4119. Test audit log for party rename
+- [ ] 4120. Document party rename semantics
+- [ ] 4121. Test party role-change handling
+- [ ] 4122. Test session state after party role-change
+- [ ] 4123. Test audit log for party role-change
+- [ ] 4124. Document party role-change semantics
+
+## 53. Networking failure matrix
+
+- [ ] 4125. Test TCP behavior on port-in-use
+- [ ] 4126. Test retry logic on port-in-use
+- [ ] 4127. Test error reporting on port-in-use
+- [ ] 4128. Document recovery for port-in-use
+- [ ] 4129. Test TCP behavior on conn-refused
+- [ ] 4130. Test retry logic on conn-refused
+- [ ] 4131. Test error reporting on conn-refused
+- [ ] 4132. Document recovery for conn-refused
+- [ ] 4133. Test TCP behavior on conn-reset
+- [ ] 4134. Test retry logic on conn-reset
+- [ ] 4135. Test error reporting on conn-reset
+- [ ] 4136. Document recovery for conn-reset
+- [ ] 4137. Test TCP behavior on half-open
+- [ ] 4138. Test retry logic on half-open
+- [ ] 4139. Test error reporting on half-open
+- [ ] 4140. Document recovery for half-open
+- [ ] 4141. Test TCP behavior on dns-fail
+- [ ] 4142. Test retry logic on dns-fail
+- [ ] 4143. Test error reporting on dns-fail
+- [ ] 4144. Document recovery for dns-fail
+- [ ] 4145. Test TCP behavior on timeout
+- [ ] 4146. Test retry logic on timeout
+- [ ] 4147. Test error reporting on timeout
+- [ ] 4148. Document recovery for timeout
+- [ ] 4149. Test TCP behavior on slow-send
+- [ ] 4150. Test retry logic on slow-send
+- [ ] 4151. Test error reporting on slow-send
+- [ ] 4152. Document recovery for slow-send
+- [ ] 4153. Test TCP behavior on fast-flood
+- [ ] 4154. Test retry logic on fast-flood
+- [ ] 4155. Test error reporting on fast-flood
+- [ ] 4156. Document recovery for fast-flood
+- [ ] 4157. Test TCP behavior on many-connections
+- [ ] 4158. Test retry logic on many-connections
+- [ ] 4159. Test error reporting on many-connections
+- [ ] 4160. Document recovery for many-connections
+- [ ] 4161. Test TCP behavior on no-listener
+- [ ] 4162. Test retry logic on no-listener
+- [ ] 4163. Test error reporting on no-listener
+- [ ] 4164. Document recovery for no-listener
+
+## 54. CLI x option matrix
+
+- [ ] 4165. Test test with default options
+- [ ] 4166. Test test help output
+- [ ] 4167. Test test error handling
+- [ ] 4168. Test test --json output
+- [ ] 4169. Test test --quiet/--verbose
+- [ ] 4170. Document test usage examples
+- [ ] 4171. Test create-session with default options
+- [ ] 4172. Test create-session help output
+- [ ] 4173. Test create-session error handling
+- [ ] 4174. Test create-session --json output
+- [ ] 4175. Test create-session --quiet/--verbose
+- [ ] 4176. Document create-session usage examples
+- [ ] 4177. Test execute with default options
+- [ ] 4178. Test execute help output
+- [ ] 4179. Test execute error handling
+- [ ] 4180. Test execute --json output
+- [ ] 4181. Test execute --quiet/--verbose
+- [ ] 4182. Document execute usage examples
+- [ ] 4183. Test keygen with default options
+- [ ] 4184. Test keygen help output
+- [ ] 4185. Test keygen error handling
+- [ ] 4186. Test keygen --json output
+- [ ] 4187. Test keygen --quiet/--verbose
+- [ ] 4188. Document keygen usage examples
+- [ ] 4189. Test verify with default options
+- [ ] 4190. Test verify help output
+- [ ] 4191. Test verify error handling
+- [ ] 4192. Test verify --json output
+- [ ] 4193. Test verify --quiet/--verbose
+- [ ] 4194. Document verify usage examples
+- [ ] 4195. Test bench with default options
+- [ ] 4196. Test bench help output
+- [ ] 4197. Test bench error handling
+- [ ] 4198. Test bench --json output
+- [ ] 4199. Test bench --quiet/--verbose
+- [ ] 4200. Document bench usage examples
+- [ ] 4201. Test config with default options
+- [ ] 4202. Test config help output
+- [ ] 4203. Test config error handling
+- [ ] 4204. Test config --json output
+- [ ] 4205. Test config --quiet/--verbose
+- [ ] 4206. Document config usage examples
+
+## 55. Coordinator x concurrency matrix
+
+- [ ] 4207. Test 2 concurrent create_session calls
+- [ ] 4208. Test 2 concurrent add_participant calls
+- [ ] 4209. Test 2 concurrent execute calls
+- [ ] 4210. Test 2 concurrent get_session calls
+- [ ] 4211. Test 2 concurrent audit queries
+- [ ] 4212. Benchmark coordinator under 2 concurrent load
+- [ ] 4213. Test 5 concurrent create_session calls
+- [ ] 4214. Test 5 concurrent add_participant calls
+- [ ] 4215. Test 5 concurrent execute calls
+- [ ] 4216. Test 5 concurrent get_session calls
+- [ ] 4217. Test 5 concurrent audit queries
+- [ ] 4218. Benchmark coordinator under 5 concurrent load
+- [ ] 4219. Test 10 concurrent create_session calls
+- [ ] 4220. Test 10 concurrent add_participant calls
+- [ ] 4221. Test 10 concurrent execute calls
+- [ ] 4222. Test 10 concurrent get_session calls
+- [ ] 4223. Test 10 concurrent audit queries
+- [ ] 4224. Benchmark coordinator under 10 concurrent load
+- [ ] 4225. Test 25 concurrent create_session calls
+- [ ] 4226. Test 25 concurrent add_participant calls
+- [ ] 4227. Test 25 concurrent execute calls
+- [ ] 4228. Test 25 concurrent get_session calls
+- [ ] 4229. Test 25 concurrent audit queries
+- [ ] 4230. Benchmark coordinator under 25 concurrent load
+
+## 56. State x crash matrix
+
+- [ ] 4231. Test recovery when crash occurs in Created
+- [ ] 4232. Test session resumability from Created
+- [ ] 4233. Test audit continuity across crash in Created
+- [ ] 4234. Test recovery when crash occurs in Configured
+- [ ] 4235. Test session resumability from Configured
+- [ ] 4236. Test audit continuity across crash in Configured
+- [ ] 4237. Test recovery when crash occurs in Running
+- [ ] 4238. Test session resumability from Running
+- [ ] 4239. Test audit continuity across crash in Running
+- [ ] 4240. Test recovery when crash occurs in Completed
+- [ ] 4241. Test session resumability from Completed
+- [ ] 4242. Test audit continuity across crash in Completed
+- [ ] 4243. Test recovery when crash occurs in Failed
+- [ ] 4244. Test session resumability from Failed
+- [ ] 4245. Test audit continuity across crash in Failed
+- [ ] 4246. Test recovery when crash occurs in Cancelled
+- [ ] 4247. Test session resumability from Cancelled
+- [ ] 4248. Test audit continuity across crash in Cancelled
+
+## 57. Dependency x advisory matrix
+
+- [ ] 4249. Verify ark-ff version is current
+- [ ] 4250. Check advisories for ark-ff
+- [ ] 4251. Check license compatibility of ark-ff
+- [ ] 4252. Check MSRV compatibility of ark-ff
+- [ ] 4253. Verify ark-bn254 version is current
+- [ ] 4254. Check advisories for ark-bn254
+- [ ] 4255. Check license compatibility of ark-bn254
+- [ ] 4256. Check MSRV compatibility of ark-bn254
+- [ ] 4257. Verify tonic version is current
+- [ ] 4258. Check advisories for tonic
+- [ ] 4259. Check license compatibility of tonic
+- [ ] 4260. Check MSRV compatibility of tonic
+- [ ] 4261. Verify axum version is current
+- [ ] 4262. Check advisories for axum
+- [ ] 4263. Check license compatibility of axum
+- [ ] 4264. Check MSRV compatibility of axum
+- [ ] 4265. Verify tokio version is current
+- [ ] 4266. Check advisories for tokio
+- [ ] 4267. Check license compatibility of tokio
+- [ ] 4268. Check MSRV compatibility of tokio
+- [ ] 4269. Verify rustls version is current
+- [ ] 4270. Check advisories for rustls
+- [ ] 4271. Check license compatibility of rustls
+- [ ] 4272. Check MSRV compatibility of rustls
+- [ ] 4273. Verify bincode version is current
+- [ ] 4274. Check advisories for bincode
+- [ ] 4275. Check license compatibility of bincode
+- [ ] 4276. Check MSRV compatibility of bincode
+- [ ] 4277. Verify serde version is current
+- [ ] 4278. Check advisories for serde
+- [ ] 4279. Check license compatibility of serde
+- [ ] 4280. Check MSRV compatibility of serde
+- [ ] 4281. Verify uuid version is current
+- [ ] 4282. Check advisories for uuid
+- [ ] 4283. Check license compatibility of uuid
+- [ ] 4284. Check MSRV compatibility of uuid
+- [ ] 4285. Verify chrono version is current
+- [ ] 4286. Check advisories for chrono
+- [ ] 4287. Check license compatibility of chrono
+- [ ] 4288. Check MSRV compatibility of chrono
+- [ ] 4289. Verify rand version is current
+- [ ] 4290. Check advisories for rand
+- [ ] 4291. Check license compatibility of rand
+- [ ] 4292. Check MSRV compatibility of rand
+- [ ] 4293. Verify sha2 version is current
+- [ ] 4294. Check advisories for sha2
+- [ ] 4295. Check license compatibility of sha2
+- [ ] 4296. Check MSRV compatibility of sha2
+- [ ] 4297. Verify sha3 version is current
+- [ ] 4298. Check advisories for sha3
+- [ ] 4299. Check license compatibility of sha3
+- [ ] 4300. Check MSRV compatibility of sha3
+- [ ] 4301. Verify blake3 version is current
+- [ ] 4302. Check advisories for blake3
+- [ ] 4303. Check license compatibility of blake3
+- [ ] 4304. Check MSRV compatibility of blake3
+- [ ] 4305. Verify hkdf version is current
+- [ ] 4306. Check advisories for hkdf
+- [ ] 4307. Check license compatibility of hkdf
+- [ ] 4308. Check MSRV compatibility of hkdf
+- [ ] 4309. Verify hmac version is current
+- [ ] 4310. Check advisories for hmac
+- [ ] 4311. Check license compatibility of hmac
+- [ ] 4312. Check MSRV compatibility of hmac
+- [ ] 4313. Verify zeroize version is current
+- [ ] 4314. Check advisories for zeroize
+- [ ] 4315. Check license compatibility of zeroize
+- [ ] 4316. Check MSRV compatibility of zeroize
+
+## 58. Wire message schema matrix
+
+- [ ] 4317. Freeze wire schema for KeyShareMessage
+- [ ] 4318. Document wire schema for KeyShareMessage
+- [ ] 4319. Add schema-versioning for KeyShareMessage
+- [ ] 4320. Test backward-compat for KeyShareMessage
+- [ ] 4321. Test forward-compat for KeyShareMessage
+- [ ] 4322. Freeze wire schema for OpenShareMessage
+- [ ] 4323. Document wire schema for OpenShareMessage
+- [ ] 4324. Add schema-versioning for OpenShareMessage
+- [ ] 4325. Test backward-compat for OpenShareMessage
+- [ ] 4326. Test forward-compat for OpenShareMessage
+- [ ] 4327. Freeze wire schema for InputShareMessage
+- [ ] 4328. Document wire schema for InputShareMessage
+- [ ] 4329. Add schema-versioning for InputShareMessage
+- [ ] 4330. Test backward-compat for InputShareMessage
+- [ ] 4331. Test forward-compat for InputShareMessage
+- [ ] 4332. Freeze wire schema for OutputShareMessage
+- [ ] 4333. Document wire schema for OutputShareMessage
+- [ ] 4334. Add schema-versioning for OutputShareMessage
+- [ ] 4335. Test backward-compat for OutputShareMessage
+- [ ] 4336. Test forward-compat for OutputShareMessage
+- [ ] 4337. Freeze wire schema for MessageEnvelope
+- [ ] 4338. Document wire schema for MessageEnvelope
+- [ ] 4339. Add schema-versioning for MessageEnvelope
+- [ ] 4340. Test backward-compat for MessageEnvelope
+- [ ] 4341. Test forward-compat for MessageEnvelope
+- [ ] 4342. Freeze wire schema for BeaverTriple
+- [ ] 4343. Document wire schema for BeaverTriple
+- [ ] 4344. Add schema-versioning for BeaverTriple
+- [ ] 4345. Test backward-compat for BeaverTriple
+- [ ] 4346. Test forward-compat for BeaverTriple
+- [ ] 4347. Freeze wire schema for AuthenticatedShare
+- [ ] 4348. Document wire schema for AuthenticatedShare
+- [ ] 4349. Add schema-versioning for AuthenticatedShare
+- [ ] 4350. Test backward-compat for AuthenticatedShare
+- [ ] 4351. Test forward-compat for AuthenticatedShare
+- [ ] 4352. Freeze wire schema for AuditEntry
+- [ ] 4353. Document wire schema for AuditEntry
+- [ ] 4354. Add schema-versioning for AuditEntry
+- [ ] 4355. Test backward-compat for AuditEntry
+- [ ] 4356. Test forward-compat for AuditEntry
+
+## 59. Per-gate failure matrix
+
+- [ ] 4357. Test Input with missing operand wire
+- [ ] 4358. Test Input with wrong operand type
+- [ ] 4359. Test Input with zero value
+- [ ] 4360. Test Input with max field value
+- [ ] 4361. Test Input repeated 100x chained
+- [ ] 4362. Test Input serialization stability
+- [ ] 4363. Test Const with missing operand wire
+- [ ] 4364. Test Const with wrong operand type
+- [ ] 4365. Test Const with zero value
+- [ ] 4366. Test Const with max field value
+- [ ] 4367. Test Const repeated 100x chained
+- [ ] 4368. Test Const serialization stability
+- [ ] 4369. Test Add with missing operand wire
+- [ ] 4370. Test Add with wrong operand type
+- [ ] 4371. Test Add with zero value
+- [ ] 4372. Test Add with max field value
+- [ ] 4373. Test Add repeated 100x chained
+- [ ] 4374. Test Add serialization stability
+- [ ] 4375. Test Sub with missing operand wire
+- [ ] 4376. Test Sub with wrong operand type
+- [ ] 4377. Test Sub with zero value
+- [ ] 4378. Test Sub with max field value
+- [ ] 4379. Test Sub repeated 100x chained
+- [ ] 4380. Test Sub serialization stability
+- [ ] 4381. Test Mul with missing operand wire
+- [ ] 4382. Test Mul with wrong operand type
+- [ ] 4383. Test Mul with zero value
+- [ ] 4384. Test Mul with max field value
+- [ ] 4385. Test Mul repeated 100x chained
+- [ ] 4386. Test Mul serialization stability
+- [ ] 4387. Test ScalarMul with missing operand wire
+- [ ] 4388. Test ScalarMul with wrong operand type
+- [ ] 4389. Test ScalarMul with zero value
+- [ ] 4390. Test ScalarMul with max field value
+- [ ] 4391. Test ScalarMul repeated 100x chained
+- [ ] 4392. Test ScalarMul serialization stability
+- [ ] 4393. Test Neg with missing operand wire
+- [ ] 4394. Test Neg with wrong operand type
+- [ ] 4395. Test Neg with zero value
+- [ ] 4396. Test Neg with max field value
+- [ ] 4397. Test Neg repeated 100x chained
+- [ ] 4398. Test Neg serialization stability
+- [ ] 4399. Test Output with missing operand wire
+- [ ] 4400. Test Output with wrong operand type
+- [ ] 4401. Test Output with zero value
+- [ ] 4402. Test Output with max field value
+- [ ] 4403. Test Output repeated 100x chained
+- [ ] 4404. Test Output serialization stability
+- [ ] 4405. Test Equal with missing operand wire
+- [ ] 4406. Test Equal with wrong operand type
+- [ ] 4407. Test Equal with zero value
+- [ ] 4408. Test Equal with max field value
+- [ ] 4409. Test Equal repeated 100x chained
+- [ ] 4410. Test Equal serialization stability
+- [ ] 4411. Test GreaterThan with missing operand wire
+- [ ] 4412. Test GreaterThan with wrong operand type
+- [ ] 4413. Test GreaterThan with zero value
+- [ ] 4414. Test GreaterThan with max field value
+- [ ] 4415. Test GreaterThan repeated 100x chained
+- [ ] 4416. Test GreaterThan serialization stability
+
+## 60. Observability matrix
+
+- [ ] 4417. Emit trace span for session-start
+- [ ] 4418. Emit metric for session-start
+- [ ] 4419. Add structured log for session-start
+- [ ] 4420. Add alert rule for session-start
+- [ ] 4421. Emit trace span for session-end
+- [ ] 4422. Emit metric for session-end
+- [ ] 4423. Add structured log for session-end
+- [ ] 4424. Add alert rule for session-end
+- [ ] 4425. Emit trace span for phase-start
+- [ ] 4426. Emit metric for phase-start
+- [ ] 4427. Add structured log for phase-start
+- [ ] 4428. Add alert rule for phase-start
+- [ ] 4429. Emit trace span for phase-end
+- [ ] 4430. Emit metric for phase-end
+- [ ] 4431. Add structured log for phase-end
+- [ ] 4432. Add alert rule for phase-end
+- [ ] 4433. Emit trace span for message-sent
+- [ ] 4434. Emit metric for message-sent
+- [ ] 4435. Add structured log for message-sent
+- [ ] 4436. Add alert rule for message-sent
+- [ ] 4437. Emit trace span for message-received
+- [ ] 4438. Emit metric for message-received
+- [ ] 4439. Add structured log for message-received
+- [ ] 4440. Add alert rule for message-received
+- [ ] 4441. Emit trace span for triple-generated
+- [ ] 4442. Emit metric for triple-generated
+- [ ] 4443. Add structured log for triple-generated
+- [ ] 4444. Add alert rule for triple-generated
+- [ ] 4445. Emit trace span for mac-verified
+- [ ] 4446. Emit metric for mac-verified
+- [ ] 4447. Add structured log for mac-verified
+- [ ] 4448. Add alert rule for mac-verified
+- [ ] 4449. Emit trace span for reconnect
+- [ ] 4450. Emit metric for reconnect
+- [ ] 4451. Add structured log for reconnect
+- [ ] 4452. Add alert rule for reconnect
+- [ ] 4453. Emit trace span for timeout
+- [ ] 4454. Emit metric for timeout
+- [ ] 4455. Add structured log for timeout
+- [ ] 4456. Add alert rule for timeout
+- [ ] 4457. Emit trace span for error
+- [ ] 4458. Emit metric for error
+- [ ] 4459. Add structured log for error
+- [ ] 4460. Add alert rule for error
+- [ ] 4461. Emit trace span for warning
+- [ ] 4462. Emit metric for warning
+- [ ] 4463. Add structured log for warning
+- [ ] 4464. Add alert rule for warning
+
+## 61. Config x Deployment mode matrix
+
+- [ ] 4465. Document config for docker
+- [ ] 4466. Test deployment in docker
+- [ ] 4467. Document scaling in docker
+- [ ] 4468. Add monitoring guide for docker
+- [ ] 4469. Document config for compose
+- [ ] 4470. Test deployment in compose
+- [ ] 4471. Document scaling in compose
+- [ ] 4472. Add monitoring guide for compose
+- [ ] 4473. Document config for k8s
+- [ ] 4474. Test deployment in k8s
+- [ ] 4475. Document scaling in k8s
+- [ ] 4476. Add monitoring guide for k8s
+- [ ] 4477. Document config for bare-metal
+- [ ] 4478. Test deployment in bare-metal
+- [ ] 4479. Document scaling in bare-metal
+- [ ] 4480. Add monitoring guide for bare-metal
+- [ ] 4481. Document config for cloud-vm
+- [ ] 4482. Test deployment in cloud-vm
+- [ ] 4483. Document scaling in cloud-vm
+- [ ] 4484. Add monitoring guide for cloud-vm
+
+## 62. Regression guard matrix
+
+- [ ] 4485. Add regression test for bug: beaver-mac-term
+- [ ] 4486. Document root cause of bug: beaver-mac-term
+- [ ] 4487. Add regression test for bug: fifo-ordering
+- [ ] 4488. Document root cause of bug: fifo-ordering
+- [ ] 4489. Add regression test for bug: peer-resolution
+- [ ] 4490. Document root cause of bug: peer-resolution
+- [ ] 4491. Add regression test for bug: triple-validity
+- [ ] 4492. Document root cause of bug: triple-validity
+- [ ] 4493. Add regression test for bug: empty-circuit-hang
+- [ ] 4494. Document root cause of bug: empty-circuit-hang
+- [ ] 4495. Add regression test for bug: lifo-mailbox
+- [ ] 4496. Document root cause of bug: lifo-mailbox
+- [ ] 4497. Add regression test for bug: alpha-telescoping
+- [ ] 4498. Document root cause of bug: alpha-telescoping
+- [ ] 4499. Add regression test for bug: n-inv-constant
+- [ ] 4500. Document root cause of bug: n-inv-constant
+
+## 63. Data path matrix
+
+- [ ] 4501. Profile memory of input-sharing
+- [ ] 4502. Profile CPU of input-sharing
+- [ ] 4503. Profile latency of input-sharing
+- [ ] 4504. Document capacity of input-sharing
+- [ ] 4505. Profile memory of triple-generation
+- [ ] 4506. Profile CPU of triple-generation
+- [ ] 4507. Profile latency of triple-generation
+- [ ] 4508. Document capacity of triple-generation
+- [ ] 4509. Profile memory of online-eval
+- [ ] 4510. Profile CPU of online-eval
+- [ ] 4511. Profile latency of online-eval
+- [ ] 4512. Document capacity of online-eval
+- [ ] 4513. Profile memory of output-reconstruction
+- [ ] 4514. Profile CPU of output-reconstruction
+- [ ] 4515. Profile latency of output-reconstruction
+- [ ] 4516. Document capacity of output-reconstruction
+- [ ] 4517. Profile memory of key-agreement
+- [ ] 4518. Profile CPU of key-agreement
+- [ ] 4519. Profile latency of key-agreement
+- [ ] 4520. Document capacity of key-agreement
+- [ ] 4521. Profile memory of audit-commit
+- [ ] 4522. Profile CPU of audit-commit
+- [ ] 4523. Profile latency of audit-commit
+- [ ] 4524. Document capacity of audit-commit
+- [ ] 4525. Profile memory of session-persist
+- [ ] 4526. Profile CPU of session-persist
+- [ ] 4527. Profile latency of session-persist
+- [ ] 4528. Document capacity of session-persist
+- [ ] 4529. Profile memory of metric-export
+- [ ] 4530. Profile CPU of metric-export
+- [ ] 4531. Profile latency of metric-export
+- [ ] 4532. Document capacity of metric-export
+
+## 64. User-facing surface matrix
+
+- [ ] 4533. Review README for clarity
+- [ ] 4534. Review README for accuracy
+- [ ] 4535. Add examples to README
+- [ ] 4536. Add error-guidance to README
+- [ ] 4537. Review DEPLOYMENT for clarity
+- [ ] 4538. Review DEPLOYMENT for accuracy
+- [ ] 4539. Add examples to DEPLOYMENT
+- [ ] 4540. Add error-guidance to DEPLOYMENT
+- [ ] 4541. Review CLI-help for clarity
+- [ ] 4542. Review CLI-help for accuracy
+- [ ] 4543. Add examples to CLI-help
+- [ ] 4544. Add error-guidance to CLI-help
+- [ ] 4545. Review REST-error-json for clarity
+- [ ] 4546. Review REST-error-json for accuracy
+- [ ] 4547. Add examples to REST-error-json
+- [ ] 4548. Add error-guidance to REST-error-json
+- [ ] 4549. Review gRPC-status for clarity
+- [ ] 4550. Review gRPC-status for accuracy
+- [ ] 4551. Add examples to gRPC-status
+- [ ] 4552. Add error-guidance to gRPC-status
+- [ ] 4553. Review config-error for clarity
+- [ ] 4554. Review config-error for accuracy
+- [ ] 4555. Add examples to config-error
+- [ ] 4556. Add error-guidance to config-error
+- [ ] 4557. Review log-lines for clarity
+- [ ] 4558. Review log-lines for accuracy
+- [ ] 4559. Add examples to log-lines
+- [ ] 4560. Add error-guidance to log-lines
+- [ ] 4561. Review dashboard for clarity
+- [ ] 4562. Review dashboard for accuracy
+- [ ] 4563. Add examples to dashboard
+- [ ] 4564. Add error-guidance to dashboard
+- [ ] 4565. Review docs-site for clarity
+- [ ] 4566. Review docs-site for accuracy
+- [ ] 4567. Add examples to docs-site
+- [ ] 4568. Add error-guidance to docs-site
+
+## 65. Runtime config validation matrix
+
+- [ ] 4569. Validate listen_addr at startup
+- [ ] 4570. Error clearly when listen_addr invalid
+- [ ] 4571. Test listen_addr boundary values
+- [ ] 4572. Document listen_addr constraints
+- [ ] 4573. Validate listen_port at startup
+- [ ] 4574. Error clearly when listen_port invalid
+- [ ] 4575. Test listen_port boundary values
+- [ ] 4576. Document listen_port constraints
+- [ ] 4577. Validate num_parties at startup
+- [ ] 4578. Error clearly when num_parties invalid
+- [ ] 4579. Test num_parties boundary values
+- [ ] 4580. Document num_parties constraints
+- [ ] 4581. Validate party_id at startup
+- [ ] 4582. Error clearly when party_id invalid
+- [ ] 4583. Test party_id boundary values
+- [ ] 4584. Document party_id constraints
+- [ ] 4585. Validate tls_enabled at startup
+- [ ] 4586. Error clearly when tls_enabled invalid
+- [ ] 4587. Test tls_enabled boundary values
+- [ ] 4588. Document tls_enabled constraints
+- [ ] 4589. Validate cert_dir at startup
+- [ ] 4590. Error clearly when cert_dir invalid
+- [ ] 4591. Test cert_dir boundary values
+- [ ] 4592. Document cert_dir constraints
+- [ ] 4593. Validate security_bits at startup
+- [ ] 4594. Error clearly when security_bits invalid
+- [ ] 4595. Test security_bits boundary values
+- [ ] 4596. Document security_bits constraints
+- [ ] 4597. Validate api_port at startup
+- [ ] 4598. Error clearly when api_port invalid
+- [ ] 4599. Test api_port boundary values
+- [ ] 4600. Document api_port constraints
+- [ ] 4601. Validate log_level at startup
+- [ ] 4602. Error clearly when log_level invalid
+- [ ] 4603. Test log_level boundary values
+- [ ] 4604. Document log_level constraints
+- [ ] 4605. Validate max_message_size at startup
+- [ ] 4606. Error clearly when max_message_size invalid
+- [ ] 4607. Test max_message_size boundary values
+- [ ] 4608. Document max_message_size constraints
+
+## 66. Overload matrix
+
+- [ ] 4609. Test behavior under cpu exhaustion
+- [ ] 4610. Add backpressure for cpu
+- [ ] 4611. Add alert for cpu exhaustion
+- [ ] 4612. Document cpu limits
+- [ ] 4613. Test behavior under memory exhaustion
+- [ ] 4614. Add backpressure for memory
+- [ ] 4615. Add alert for memory exhaustion
+- [ ] 4616. Document memory limits
+- [ ] 4617. Test behavior under network exhaustion
+- [ ] 4618. Add backpressure for network
+- [ ] 4619. Add alert for network exhaustion
+- [ ] 4620. Document network limits
+- [ ] 4621. Test behavior under disk exhaustion
+- [ ] 4622. Add backpressure for disk
+- [ ] 4623. Add alert for disk exhaustion
+- [ ] 4624. Document disk limits
+- [ ] 4625. Test behavior under fd exhaustion
+- [ ] 4626. Add backpressure for fd
+- [ ] 4627. Add alert for fd exhaustion
+- [ ] 4628. Document fd limits
+- [ ] 4629. Test behavior under threads exhaustion
+- [ ] 4630. Add backpressure for threads
+- [ ] 4631. Add alert for threads exhaustion
+- [ ] 4632. Document threads limits
+- [ ] 4633. Test behavior under sessions exhaustion
+- [ ] 4634. Add backpressure for sessions
+- [ ] 4635. Add alert for sessions exhaustion
+- [ ] 4636. Document sessions limits
+- [ ] 4637. Test behavior under messages exhaustion
+- [ ] 4638. Add backpressure for messages
+- [ ] 4639. Add alert for messages exhaustion
+- [ ] 4640. Document messages limits
+
+## 67. Upgrade path matrix
+
+- [ ] 4641. Document upgrade path to 0.1.0-alpha
+- [ ] 4642. Test migration from previous to 0.1.0-alpha
+- [ ] 4643. Document breaking changes in 0.1.0-alpha
+- [ ] 4644. Document upgrade path to 0.1.0
+- [ ] 4645. Test migration from previous to 0.1.0
+- [ ] 4646. Document breaking changes in 0.1.0
+- [ ] 4647. Document upgrade path to 0.2.0
+- [ ] 4648. Test migration from previous to 0.2.0
+- [ ] 4649. Document breaking changes in 0.2.0
+- [ ] 4650. Document upgrade path to 1.0.0
+- [ ] 4651. Test migration from previous to 1.0.0
+- [ ] 4652. Document breaking changes in 1.0.0
+
+## 68. Cert lifecycle matrix
+
+- [ ] 4653. Document cert generate procedure
+- [ ] 4654. Test cert generate flow
+- [ ] 4655. Add automation for cert generate
+- [ ] 4656. Document cert install procedure
+- [ ] 4657. Test cert install flow
+- [ ] 4658. Add automation for cert install
+- [ ] 4659. Document cert verify procedure
+- [ ] 4660. Test cert verify flow
+- [ ] 4661. Add automation for cert verify
+- [ ] 4662. Document cert rotate procedure
+- [ ] 4663. Test cert rotate flow
+- [ ] 4664. Add automation for cert rotate
+- [ ] 4665. Document cert revoke procedure
+- [ ] 4666. Test cert revoke flow
+- [ ] 4667. Add automation for cert revoke
+- [ ] 4668. Document cert expire procedure
+- [ ] 4669. Test cert expire flow
+- [ ] 4670. Add automation for cert expire
+- [ ] 4671. Document cert renew procedure
+- [ ] 4672. Test cert renew flow
+- [ ] 4673. Add automation for cert renew
+- [ ] 4674. Document cert backup procedure
+- [ ] 4675. Test cert backup flow
+- [ ] 4676. Add automation for cert backup
+
+## 69. Key rotation matrix
+
+- [ ] 4677. Document mac-key rotation
+- [ ] 4678. Test mac-key rotation
+- [ ] 4679. Test mac-key rotation during active session
+- [ ] 4680. Document signing-key rotation
+- [ ] 4681. Test signing-key rotation
+- [ ] 4682. Test signing-key rotation during active session
+- [ ] 4683. Document session-key rotation
+- [ ] 4684. Test session-key rotation
+- [ ] 4685. Test session-key rotation during active session
+- [ ] 4686. Document identity-key rotation
+- [ ] 4687. Test identity-key rotation
+- [ ] 4688. Test identity-key rotation during active session
+- [ ] 4689. Document ca-key rotation
+- [ ] 4690. Test ca-key rotation
+- [ ] 4691. Test ca-key rotation during active session
+
+## 70. Logging levels matrix
+
+- [ ] 4692. Verify error logging works
+- [ ] 4693. Document what appears at error
+- [ ] 4694. Test RUST_LOG=error filtering
+- [ ] 4695. Verify warn logging works
+- [ ] 4696. Document what appears at warn
+- [ ] 4697. Test RUST_LOG=warn filtering
+- [ ] 4698. Verify info logging works
+- [ ] 4699. Document what appears at info
+- [ ] 4700. Test RUST_LOG=info filtering
+- [ ] 4701. Verify debug logging works
+- [ ] 4702. Document what appears at debug
+- [ ] 4703. Test RUST_LOG=debug filtering
+- [ ] 4704. Verify trace logging works
+- [ ] 4705. Document what appears at trace
+- [ ] 4706. Test RUST_LOG=trace filtering
+
+## 71. Message routing matrix
+
+- [ ] 4707. Test key-share routing over TCP
+- [ ] 4708. Test key-share routing over in-memory
+- [ ] 4709. Test key-share routing under concurrency
+- [ ] 4710. Test key-share ordering guarantees
+- [ ] 4711. Test open-share routing over TCP
+- [ ] 4712. Test open-share routing over in-memory
+- [ ] 4713. Test open-share routing under concurrency
+- [ ] 4714. Test open-share ordering guarantees
+- [ ] 4715. Test input-share routing over TCP
+- [ ] 4716. Test input-share routing over in-memory
+- [ ] 4717. Test input-share routing under concurrency
+- [ ] 4718. Test input-share ordering guarantees
+- [ ] 4719. Test output-share routing over TCP
+- [ ] 4720. Test output-share routing over in-memory
+- [ ] 4721. Test output-share routing under concurrency
+- [ ] 4722. Test output-share ordering guarantees
+- [ ] 4723. Test broadcast routing over TCP
+- [ ] 4724. Test broadcast routing over in-memory
+- [ ] 4725. Test broadcast routing under concurrency
+- [ ] 4726. Test broadcast ordering guarantees
+- [ ] 4727. Test unicast routing over TCP
+- [ ] 4728. Test unicast routing over in-memory
+- [ ] 4729. Test unicast routing under concurrency
+- [ ] 4730. Test unicast ordering guarantees
+- [ ] 4731. Test all-to-all routing over TCP
+- [ ] 4732. Test all-to-all routing over in-memory
+- [ ] 4733. Test all-to-all routing under concurrency
+- [ ] 4734. Test all-to-all ordering guarantees
+
+## 72. Circuit validation matrix
+
+- [ ] 4735. Test circuit validation rejects: empty
+- [ ] 4736. Test circuit validation accepts valid variant of empty
+- [ ] 4737. Document validation error for empty
+- [ ] 4738. Test circuit validation rejects: null-input
+- [ ] 4739. Test circuit validation accepts valid variant of null-input
+- [ ] 4740. Document validation error for null-input
+- [ ] 4741. Test circuit validation rejects: dangling-ref
+- [ ] 4742. Test circuit validation accepts valid variant of dangling-ref
+- [ ] 4743. Document validation error for dangling-ref
+- [ ] 4744. Test circuit validation rejects: cycle
+- [ ] 4745. Test circuit validation accepts valid variant of cycle
+- [ ] 4746. Document validation error for cycle
+- [ ] 4747. Test circuit validation rejects: self-ref
+- [ ] 4748. Test circuit validation accepts valid variant of self-ref
+- [ ] 4749. Document validation error for self-ref
+- [ ] 4750. Test circuit validation rejects: duplicate-wire
+- [ ] 4751. Test circuit validation accepts valid variant of duplicate-wire
+- [ ] 4752. Document validation error for duplicate-wire
+- [ ] 4753. Test circuit validation rejects: non-topological
+- [ ] 4754. Test circuit validation accepts valid variant of non-topological
+- [ ] 4755. Document validation error for non-topological
+- [ ] 4756. Test circuit validation rejects: too-deep
+- [ ] 4757. Test circuit validation accepts valid variant of too-deep
+- [ ] 4758. Document validation error for too-deep
+- [ ] 4759. Test circuit validation rejects: too-wide
+- [ ] 4760. Test circuit validation accepts valid variant of too-wide
+- [ ] 4761. Document validation error for too-wide
+- [ ] 4762. Test circuit validation rejects: too-many-muls
+- [ ] 4763. Test circuit validation accepts valid variant of too-many-muls
+- [ ] 4764. Document validation error for too-many-muls
+
+## 73. Error-propagation matrix
+
+- [ ] 4765. Test error propagation for connection
+- [ ] 4766. Test error mapping to REST for connection
+- [ ] 4767. Test error mapping to gRPC for connection
+- [ ] 4768. Test error handling in CLI for connection
+- [ ] 4769. Test error recovery after connection
+- [ ] 4770. Document connection resolution
+- [ ] 4771. Test error propagation for timeout
+- [ ] 4772. Test error mapping to REST for timeout
+- [ ] 4773. Test error mapping to gRPC for timeout
+- [ ] 4774. Test error handling in CLI for timeout
+- [ ] 4775. Test error recovery after timeout
+- [ ] 4776. Document timeout resolution
+- [ ] 4777. Test error propagation for serialization
+- [ ] 4778. Test error mapping to REST for serialization
+- [ ] 4779. Test error mapping to gRPC for serialization
+- [ ] 4780. Test error handling in CLI for serialization
+- [ ] 4781. Test error recovery after serialization
+- [ ] 4782. Document serialization resolution
+- [ ] 4783. Test error propagation for protocol
+- [ ] 4784. Test error mapping to REST for protocol
+- [ ] 4785. Test error mapping to gRPC for protocol
+- [ ] 4786. Test error handling in CLI for protocol
+- [ ] 4787. Test error recovery after protocol
+- [ ] 4788. Document protocol resolution
+- [ ] 4789. Test error propagation for mac-verification
+- [ ] 4790. Test error mapping to REST for mac-verification
+- [ ] 4791. Test error mapping to gRPC for mac-verification
+- [ ] 4792. Test error handling in CLI for mac-verification
+- [ ] 4793. Test error recovery after mac-verification
+- [ ] 4794. Document mac-verification resolution
+- [ ] 4795. Test error propagation for not-enough-parties
+- [ ] 4796. Test error mapping to REST for not-enough-parties
+- [ ] 4797. Test error mapping to gRPC for not-enough-parties
+- [ ] 4798. Test error handling in CLI for not-enough-parties
+- [ ] 4799. Test error recovery after not-enough-parties
+- [ ] 4800. Document not-enough-parties resolution
+- [ ] 4801. Test error propagation for invalid-input
+- [ ] 4802. Test error mapping to REST for invalid-input
+- [ ] 4803. Test error mapping to gRPC for invalid-input
+- [ ] 4804. Test error handling in CLI for invalid-input
+- [ ] 4805. Test error recovery after invalid-input
+- [ ] 4806. Document invalid-input resolution
+- [ ] 4807. Test error propagation for unknown-peer
+- [ ] 4808. Test error mapping to REST for unknown-peer
+- [ ] 4809. Test error mapping to gRPC for unknown-peer
+- [ ] 4810. Test error handling in CLI for unknown-peer
+- [ ] 4811. Test error recovery after unknown-peer
+- [ ] 4812. Document unknown-peer resolution
+- [ ] 4813. Test error propagation for bind-failure
+- [ ] 4814. Test error mapping to REST for bind-failure
+- [ ] 4815. Test error mapping to gRPC for bind-failure
+- [ ] 4816. Test error handling in CLI for bind-failure
+- [ ] 4817. Test error recovery after bind-failure
+- [ ] 4818. Document bind-failure resolution
+- [ ] 4819. Test error propagation for session-not-found
+- [ ] 4820. Test error mapping to REST for session-not-found
+- [ ] 4821. Test error mapping to gRPC for session-not-found
+- [ ] 4822. Test error handling in CLI for session-not-found
+- [ ] 4823. Test error recovery after session-not-found
+- [ ] 4824. Document session-not-found resolution
+
+## 74. Retry matrix
+
+- [ ] 4825. Define retry policy for connect
+- [ ] 4826. Test retry exhaustion for connect
+- [ ] 4827. Test retry backoff for connect
+- [ ] 4828. Test retry idempotency for connect
+- [ ] 4829. Define retry policy for send
+- [ ] 4830. Test retry exhaustion for send
+- [ ] 4831. Test retry backoff for send
+- [ ] 4832. Test retry idempotency for send
+- [ ] 4833. Define retry policy for recv
+- [ ] 4834. Test retry exhaustion for recv
+- [ ] 4835. Test retry backoff for recv
+- [ ] 4836. Test retry idempotency for recv
+- [ ] 4837. Define retry policy for execute
+- [ ] 4838. Test retry exhaustion for execute
+- [ ] 4839. Test retry backoff for execute
+- [ ] 4840. Test retry idempotency for execute
+- [ ] 4841. Define retry policy for reconstruct
+- [ ] 4842. Test retry exhaustion for reconstruct
+- [ ] 4843. Test retry backoff for reconstruct
+- [ ] 4844. Test retry idempotency for reconstruct
+- [ ] 4845. Define retry policy for keygen
+- [ ] 4846. Test retry exhaustion for keygen
+- [ ] 4847. Test retry backoff for keygen
+- [ ] 4848. Test retry idempotency for keygen
+
+## 75. Data protection matrix
+
+- [ ] 4849. Verify secret protection at-rest
+- [ ] 4850. Document secret handling at-rest
+- [ ] 4851. Add test for secret handling at-rest
+- [ ] 4852. Verify secret protection in-transit
+- [ ] 4853. Document secret handling in-transit
+- [ ] 4854. Add test for secret handling in-transit
+- [ ] 4855. Verify secret protection in-memory
+- [ ] 4856. Document secret handling in-memory
+- [ ] 4857. Add test for secret handling in-memory
+- [ ] 4858. Verify secret protection in-logs
+- [ ] 4859. Document secret handling in-logs
+- [ ] 4860. Add test for secret handling in-logs
+- [ ] 4861. Verify secret protection in-backups
+- [ ] 4862. Document secret handling in-backups
+- [ ] 4863. Add test for secret handling in-backups
+- [ ] 4864. Verify secret protection in-audit-log
+- [ ] 4865. Document secret handling in-audit-log
+- [ ] 4866. Add test for secret handling in-audit-log
+
+## 76. Protocol message count matrix
+
+- [ ] 4867. Measure message count per phase with 3 parties
+- [ ] 4868. Measure message bytes per phase with 3 parties
+- [ ] 4869. Document network cost with 3 parties
+- [ ] 4870. Measure message count per phase with 5 parties
+- [ ] 4871. Measure message bytes per phase with 5 parties
+- [ ] 4872. Document network cost with 5 parties
+- [ ] 4873. Measure message count per phase with 10 parties
+- [ ] 4874. Measure message bytes per phase with 10 parties
+- [ ] 4875. Document network cost with 10 parties
+- [ ] 4876. Measure message count per phase with 16 parties
+- [ ] 4877. Measure message bytes per phase with 16 parties
+- [ ] 4878. Document network cost with 16 parties
+
+## 77. Startup matrix
+
+- [ ] 4879. Test startup step: config-load
+- [ ] 4880. Test startup failure handling: config-load
+- [ ] 4881. Document startup order: config-load
+- [ ] 4882. Test startup step: tls-init
+- [ ] 4883. Test startup failure handling: tls-init
+- [ ] 4884. Document startup order: tls-init
+- [ ] 4885. Test startup step: cert-load
+- [ ] 4886. Test startup failure handling: cert-load
+- [ ] 4887. Document startup order: cert-load
+- [ ] 4888. Test startup step: listener-bind
+- [ ] 4889. Test startup failure handling: listener-bind
+- [ ] 4890. Document startup order: listener-bind
+- [ ] 4891. Test startup step: metrics-start
+- [ ] 4892. Test startup failure handling: metrics-start
+- [ ] 4893. Document startup order: metrics-start
+- [ ] 4894. Test startup step: audit-init
+- [ ] 4895. Test startup failure handling: audit-init
+- [ ] 4896. Document startup order: audit-init
+- [ ] 4897. Test startup step: state-load
+- [ ] 4898. Test startup failure handling: state-load
+- [ ] 4899. Document startup order: state-load
+
+## 78. Shutdown matrix
+
+- [ ] 4900. Test graceful shutdown path
+- [ ] 4901. Test state integrity after graceful shutdown
+- [ ] 4902. Document graceful shutdown behavior
+- [ ] 4903. Test crash shutdown path
+- [ ] 4904. Test state integrity after crash shutdown
+- [ ] 4905. Document crash shutdown behavior
+- [ ] 4906. Test signal shutdown path
+- [ ] 4907. Test state integrity after signal shutdown
+- [ ] 4908. Document signal shutdown behavior
+- [ ] 4909. Test timeout shutdown path
+- [ ] 4910. Test state integrity after timeout shutdown
+- [ ] 4911. Document timeout shutdown behavior
+- [ ] 4912. Test force shutdown path
+- [ ] 4913. Test state integrity after force shutdown
+- [ ] 4914. Document force shutdown behavior
+
+## 79. Deployment topology matrix
+
+- [ ] 4915. Document single-node topology
+- [ ] 4916. Test single-node deployment
+- [ ] 4917. Document latency for single-node
+- [ ] 4918. Document multi-node topology
+- [ ] 4919. Test multi-node deployment
+- [ ] 4920. Document latency for multi-node
+- [ ] 4921. Document multi-region topology
+- [ ] 4922. Test multi-region deployment
+- [ ] 4923. Document latency for multi-region
+- [ ] 4924. Document hybrid-cloud topology
+- [ ] 4925. Test hybrid-cloud deployment
+- [ ] 4926. Document latency for hybrid-cloud
+- [ ] 4927. Document on-prem topology
+- [ ] 4928. Test on-prem deployment
+- [ ] 4929. Document latency for on-prem
+- [ ] 4930. Document edge topology
+- [ ] 4931. Test edge deployment
+- [ ] 4932. Document latency for edge
+
+## 80. Final acceptance matrix
+
+- [ ] 4933. Sign off on build acceptance
+- [ ] 4934. Document build acceptance criteria
+- [ ] 4935. Sign off on test acceptance
+- [ ] 4936. Document test acceptance criteria
+- [ ] 4937. Sign off on lint acceptance
+- [ ] 4938. Document lint acceptance criteria
+- [ ] 4939. Sign off on audit acceptance
+- [ ] 4940. Document audit acceptance criteria
+- [ ] 4941. Sign off on bench acceptance
+- [ ] 4942. Document bench acceptance criteria
+- [ ] 4943. Sign off on docs acceptance
+- [ ] 4944. Document docs acceptance criteria
+- [ ] 4945. Sign off on deploy acceptance
+- [ ] 4946. Document deploy acceptance criteria
+- [ ] 4947. Sign off on security acceptance
+- [ ] 4948. Document security acceptance criteria
+- [ ] 4949. Sign off on compliance acceptance
+- [ ] 4950. Document compliance acceptance criteria
+- [ ] 4951. Sign off on ops acceptance
+- [ ] 4952. Document ops acceptance criteria
+
+## 81. Padding to 5000 (misc launch hygiene)
+
+- [ ] 4953. Final hygiene check: verify no stray println! in production code (check 1)
+- [ ] 4954. Final hygiene check: verify no dbg! in production code (check 1)
+- [ ] 4955. Final hygiene check: verify no unwrap() in production code (check 1)
+- [ ] 4956. Final hygiene check: verify all public items have rustdoc (check 1)
+- [ ] 4957. Final hygiene check: verify no dead code warnings (check 1)
+- [ ] 4958. Final hygiene check: verify no stray println! in production code (check 2)
+- [ ] 4959. Final hygiene check: verify no dbg! in production code (check 2)
+- [ ] 4960. Final hygiene check: verify no unwrap() in production code (check 2)
+- [ ] 4961. Final hygiene check: verify all public items have rustdoc (check 2)
+- [ ] 4962. Final hygiene check: verify no dead code warnings (check 2)
+- [ ] 4963. Final hygiene check: verify no stray println! in production code (check 3)
+- [ ] 4964. Final hygiene check: verify no dbg! in production code (check 3)
+- [ ] 4965. Final hygiene check: verify no unwrap() in production code (check 3)
+- [ ] 4966. Final hygiene check: verify all public items have rustdoc (check 3)
+- [ ] 4967. Final hygiene check: verify no dead code warnings (check 3)
+- [ ] 4968. Final hygiene check: verify no stray println! in production code (check 4)
+- [ ] 4969. Final hygiene check: verify no dbg! in production code (check 4)
+- [ ] 4970. Final hygiene check: verify no unwrap() in production code (check 4)
+- [ ] 4971. Final hygiene check: verify all public items have rustdoc (check 4)
+- [ ] 4972. Final hygiene check: verify no dead code warnings (check 4)
+- [ ] 4973. Final hygiene check: verify no stray println! in production code (check 5)
+- [ ] 4974. Final hygiene check: verify no dbg! in production code (check 5)
+- [ ] 4975. Final hygiene check: verify no unwrap() in production code (check 5)
+- [ ] 4976. Final hygiene check: verify all public items have rustdoc (check 5)
+- [ ] 4977. Final hygiene check: verify no dead code warnings (check 5)
+- [ ] 4978. Final hygiene check: verify no stray println! in production code (check 6)
+- [ ] 4979. Final hygiene check: verify no dbg! in production code (check 6)
+- [ ] 4980. Final hygiene check: verify no unwrap() in production code (check 6)
+- [ ] 4981. Final hygiene check: verify all public items have rustdoc (check 6)
+- [ ] 4982. Final hygiene check: verify no dead code warnings (check 6)
+- [ ] 4983. Final hygiene check: verify no stray println! in production code (check 7)
+- [ ] 4984. Final hygiene check: verify no dbg! in production code (check 7)
+- [ ] 4985. Final hygiene check: verify no unwrap() in production code (check 7)
+- [ ] 4986. Final hygiene check: verify all public items have rustdoc (check 7)
+- [ ] 4987. Final hygiene check: verify no dead code warnings (check 7)
+- [ ] 4988. Final hygiene check: verify no stray println! in production code (check 8)
+- [ ] 4989. Final hygiene check: verify no dbg! in production code (check 8)
+- [ ] 4990. Final hygiene check: verify no unwrap() in production code (check 8)
+- [ ] 4991. Final hygiene check: verify all public items have rustdoc (check 8)
+- [ ] 4992. Final hygiene check: verify no dead code warnings (check 8)
+- [ ] 4993. Final hygiene check: verify no stray println! in production code (check 9)
+- [ ] 4994. Final hygiene check: verify no dbg! in production code (check 9)
+- [ ] 4995. Final hygiene check: verify no unwrap() in production code (check 9)
+- [ ] 4996. Final hygiene check: verify all public items have rustdoc (check 9)
+- [ ] 4997. Final hygiene check: verify no dead code warnings (check 9)
+- [ ] 4998. Final hygiene check: verify no stray println! in production code (check 10)
+- [ ] 4999. Final hygiene check: verify no dbg! in production code (check 10)
+- [ ] 5000. Final hygiene check: verify no unwrap() in production code (check 10)
+- [ ] 5001. Final hygiene check: verify all public items have rustdoc (check 10)
+- [ ] 5002. Final hygiene check: verify no dead code warnings (check 10)
+- [ ] 5003. Final hygiene check: verify no stray println! in production code (check 11)
+- [ ] 5004. Final hygiene check: verify no dbg! in production code (check 11)
+- [ ] 5005. Final hygiene check: verify no unwrap() in production code (check 11)
+- [ ] 5006. Final hygiene check: verify all public items have rustdoc (check 11)
+- [ ] 5007. Final hygiene check: verify no dead code warnings (check 11)
+- [ ] 5008. Final hygiene check: verify no stray println! in production code (check 12)
+- [ ] 5009. Final hygiene check: verify no dbg! in production code (check 12)
+- [ ] 5010. Final hygiene check: verify no unwrap() in production code (check 12)
+- [ ] 5011. Final hygiene check: verify all public items have rustdoc (check 12)
+- [ ] 5012. Final hygiene check: verify no dead code warnings (check 12)
+- [ ] 5013. Final hygiene check: verify no stray println! in production code (check 13)
+- [ ] 5014. Final hygiene check: verify no dbg! in production code (check 13)
+- [ ] 5015. Final hygiene check: verify no unwrap() in production code (check 13)
+- [ ] 5016. Final hygiene check: verify all public items have rustdoc (check 13)
+- [ ] 5017. Final hygiene check: verify no dead code warnings (check 13)
+- [ ] 5018. Final hygiene check: verify no stray println! in production code (check 14)
+- [ ] 5019. Final hygiene check: verify no dbg! in production code (check 14)
+- [ ] 5020. Final hygiene check: verify no unwrap() in production code (check 14)
+- [ ] 5021. Final hygiene check: verify all public items have rustdoc (check 14)
+- [ ] 5022. Final hygiene check: verify no dead code warnings (check 14)
+- [ ] 5023. Final hygiene check: verify no stray println! in production code (check 15)
+- [ ] 5024. Final hygiene check: verify no dbg! in production code (check 15)
+- [ ] 5025. Final hygiene check: verify no unwrap() in production code (check 15)
+- [ ] 5026. Final hygiene check: verify all public items have rustdoc (check 15)
+- [ ] 5027. Final hygiene check: verify no dead code warnings (check 15)
+- [ ] 5028. Final hygiene check: verify no stray println! in production code (check 16)
+- [ ] 5029. Final hygiene check: verify no dbg! in production code (check 16)
+- [ ] 5030. Final hygiene check: verify no unwrap() in production code (check 16)
+- [ ] 5031. Final hygiene check: verify all public items have rustdoc (check 16)
+- [ ] 5032. Final hygiene check: verify no dead code warnings (check 16)
+- [ ] 5033. Final hygiene check: verify no stray println! in production code (check 17)
+- [ ] 5034. Final hygiene check: verify no dbg! in production code (check 17)
+- [ ] 5035. Final hygiene check: verify no unwrap() in production code (check 17)
+- [ ] 5036. Final hygiene check: verify all public items have rustdoc (check 17)
+- [ ] 5037. Final hygiene check: verify no dead code warnings (check 17)
+- [ ] 5038. Final hygiene check: verify no stray println! in production code (check 18)
+- [ ] 5039. Final hygiene check: verify no dbg! in production code (check 18)
+- [ ] 5040. Final hygiene check: verify no unwrap() in production code (check 18)
+- [ ] 5041. Final hygiene check: verify all public items have rustdoc (check 18)
+- [ ] 5042. Final hygiene check: verify no dead code warnings (check 18)
+- [ ] 5043. Final hygiene check: verify no stray println! in production code (check 19)
+- [ ] 5044. Final hygiene check: verify no dbg! in production code (check 19)
+- [ ] 5045. Final hygiene check: verify no unwrap() in production code (check 19)
+- [ ] 5046. Final hygiene check: verify all public items have rustdoc (check 19)
+- [ ] 5047. Final hygiene check: verify no dead code warnings (check 19)
+- [ ] 5048. Final hygiene check: verify no stray println! in production code (check 20)
+- [ ] 5049. Final hygiene check: verify no dbg! in production code (check 20)
+- [ ] 5050. Final hygiene check: verify no unwrap() in production code (check 20)
+- [ ] 5051. Final hygiene check: verify all public items have rustdoc (check 20)
+- [ ] 5052. Final hygiene check: verify no dead code warnings (check 20)
+- [ ] 5053. Final hygiene check: verify no stray println! in production code (check 21)
+- [ ] 5054. Final hygiene check: verify no dbg! in production code (check 21)
+- [ ] 5055. Final hygiene check: verify no unwrap() in production code (check 21)
+- [ ] 5056. Final hygiene check: verify all public items have rustdoc (check 21)
+- [ ] 5057. Final hygiene check: verify no dead code warnings (check 21)
+- [ ] 5058. Final hygiene check: verify no stray println! in production code (check 22)
+- [ ] 5059. Final hygiene check: verify no dbg! in production code (check 22)
+- [ ] 5060. Final hygiene check: verify no unwrap() in production code (check 22)
+- [ ] 5061. Final hygiene check: verify all public items have rustdoc (check 22)
+- [ ] 5062. Final hygiene check: verify no dead code warnings (check 22)
+- [ ] 5063. Final hygiene check: verify no stray println! in production code (check 23)
+- [ ] 5064. Final hygiene check: verify no dbg! in production code (check 23)
+- [ ] 5065. Final hygiene check: verify no unwrap() in production code (check 23)
+- [ ] 5066. Final hygiene check: verify all public items have rustdoc (check 23)
+- [ ] 5067. Final hygiene check: verify no dead code warnings (check 23)
+- [ ] 5068. Final hygiene check: verify no stray println! in production code (check 24)
+- [ ] 5069. Final hygiene check: verify no dbg! in production code (check 24)
+- [ ] 5070. Final hygiene check: verify no unwrap() in production code (check 24)
+- [ ] 5071. Final hygiene check: verify all public items have rustdoc (check 24)
+- [ ] 5072. Final hygiene check: verify no dead code warnings (check 24)
+- [ ] 5073. Final hygiene check: verify no stray println! in production code (check 25)
+- [ ] 5074. Final hygiene check: verify no dbg! in production code (check 25)
+- [ ] 5075. Final hygiene check: verify no unwrap() in production code (check 25)
+- [ ] 5076. Final hygiene check: verify all public items have rustdoc (check 25)
+- [ ] 5077. Final hygiene check: verify no dead code warnings (check 25)
+- [ ] 5078. Final hygiene check: verify no stray println! in production code (check 26)
+- [ ] 5079. Final hygiene check: verify no dbg! in production code (check 26)
+- [ ] 5080. Final hygiene check: verify no unwrap() in production code (check 26)
+- [ ] 5081. Final hygiene check: verify all public items have rustdoc (check 26)
+- [ ] 5082. Final hygiene check: verify no dead code warnings (check 26)
+- [ ] 5083. Final hygiene check: verify no stray println! in production code (check 27)
+- [ ] 5084. Final hygiene check: verify no dbg! in production code (check 27)
+- [ ] 5085. Final hygiene check: verify no unwrap() in production code (check 27)
+- [ ] 5086. Final hygiene check: verify all public items have rustdoc (check 27)
+- [ ] 5087. Final hygiene check: verify no dead code warnings (check 27)
+- [ ] 5088. Final hygiene check: verify no stray println! in production code (check 28)
+- [ ] 5089. Final hygiene check: verify no dbg! in production code (check 28)
+- [ ] 5090. Final hygiene check: verify no unwrap() in production code (check 28)
+- [ ] 5091. Final hygiene check: verify all public items have rustdoc (check 28)
+- [ ] 5092. Final hygiene check: verify no dead code warnings (check 28)
+- [ ] 5093. Final hygiene check: verify no stray println! in production code (check 29)
+- [ ] 5094. Final hygiene check: verify no dbg! in production code (check 29)
+- [ ] 5095. Final hygiene check: verify no unwrap() in production code (check 29)
+- [ ] 5096. Final hygiene check: verify all public items have rustdoc (check 29)
+- [ ] 5097. Final hygiene check: verify no dead code warnings (check 29)
+- [ ] 5098. Final hygiene check: verify no stray println! in production code (check 30)
+- [ ] 5099. Final hygiene check: verify no dbg! in production code (check 30)
+- [ ] 5100. Final hygiene check: verify no unwrap() in production code (check 30)
+- [ ] 5101. Final hygiene check: verify all public items have rustdoc (check 30)
+- [ ] 5102. Final hygiene check: verify no dead code warnings (check 30)
+- [ ] 5103. Final hygiene check: verify no stray println! in production code (check 31)
+- [ ] 5104. Final hygiene check: verify no dbg! in production code (check 31)
+- [ ] 5105. Final hygiene check: verify no unwrap() in production code (check 31)
+- [ ] 5106. Final hygiene check: verify all public items have rustdoc (check 31)
+- [ ] 5107. Final hygiene check: verify no dead code warnings (check 31)
+- [ ] 5108. Final hygiene check: verify no stray println! in production code (check 32)
+- [ ] 5109. Final hygiene check: verify no dbg! in production code (check 32)
+- [ ] 5110. Final hygiene check: verify no unwrap() in production code (check 32)
+- [ ] 5111. Final hygiene check: verify all public items have rustdoc (check 32)
+- [ ] 5112. Final hygiene check: verify no dead code warnings (check 32)
+- [ ] 5113. Final hygiene check: verify no stray println! in production code (check 33)
+- [ ] 5114. Final hygiene check: verify no dbg! in production code (check 33)
+- [ ] 5115. Final hygiene check: verify no unwrap() in production code (check 33)
+- [ ] 5116. Final hygiene check: verify all public items have rustdoc (check 33)
+- [ ] 5117. Final hygiene check: verify no dead code warnings (check 33)
+- [ ] 5118. Final hygiene check: verify no stray println! in production code (check 34)
+- [ ] 5119. Final hygiene check: verify no dbg! in production code (check 34)
+- [ ] 5120. Final hygiene check: verify no unwrap() in production code (check 34)
+- [ ] 5121. Final hygiene check: verify all public items have rustdoc (check 34)
+- [ ] 5122. Final hygiene check: verify no dead code warnings (check 34)
+- [ ] 5123. Final hygiene check: verify no stray println! in production code (check 35)
+- [ ] 5124. Final hygiene check: verify no dbg! in production code (check 35)
+- [ ] 5125. Final hygiene check: verify no unwrap() in production code (check 35)
+- [ ] 5126. Final hygiene check: verify all public items have rustdoc (check 35)
+- [ ] 5127. Final hygiene check: verify no dead code warnings (check 35)
+- [ ] 5128. Final hygiene check: verify no stray println! in production code (check 36)
+- [ ] 5129. Final hygiene check: verify no dbg! in production code (check 36)
+- [ ] 5130. Final hygiene check: verify no unwrap() in production code (check 36)
+- [ ] 5131. Final hygiene check: verify all public items have rustdoc (check 36)
+- [ ] 5132. Final hygiene check: verify no dead code warnings (check 36)
+- [ ] 5133. Final hygiene check: verify no stray println! in production code (check 37)
+- [ ] 5134. Final hygiene check: verify no dbg! in production code (check 37)
+- [ ] 5135. Final hygiene check: verify no unwrap() in production code (check 37)
+- [ ] 5136. Final hygiene check: verify all public items have rustdoc (check 37)
+- [ ] 5137. Final hygiene check: verify no dead code warnings (check 37)
+- [ ] 5138. Final hygiene check: verify no stray println! in production code (check 38)
+- [ ] 5139. Final hygiene check: verify no dbg! in production code (check 38)
+- [ ] 5140. Final hygiene check: verify no unwrap() in production code (check 38)
+- [ ] 5141. Final hygiene check: verify all public items have rustdoc (check 38)
+- [ ] 5142. Final hygiene check: verify no dead code warnings (check 38)
+- [ ] 5143. Final hygiene check: verify no stray println! in production code (check 39)
+- [ ] 5144. Final hygiene check: verify no dbg! in production code (check 39)
+- [ ] 5145. Final hygiene check: verify no unwrap() in production code (check 39)
+- [ ] 5146. Final hygiene check: verify all public items have rustdoc (check 39)
+- [ ] 5147. Final hygiene check: verify no dead code warnings (check 39)
+- [ ] 5148. Final hygiene check: verify no stray println! in production code (check 40)
+- [ ] 5149. Final hygiene check: verify no dbg! in production code (check 40)
+- [ ] 5150. Final hygiene check: verify no unwrap() in production code (check 40)
+- [ ] 5151. Final hygiene check: verify all public items have rustdoc (check 40)
+- [ ] 5152. Final hygiene check: verify no dead code warnings (check 40)
+- [ ] 5153. Final hygiene check: verify no stray println! in production code (check 41)
+- [ ] 5154. Final hygiene check: verify no dbg! in production code (check 41)
+- [ ] 5155. Final hygiene check: verify no unwrap() in production code (check 41)
+- [ ] 5156. Final hygiene check: verify all public items have rustdoc (check 41)
+- [ ] 5157. Final hygiene check: verify no dead code warnings (check 41)
+- [ ] 5158. Final hygiene check: verify no stray println! in production code (check 42)
+- [ ] 5159. Final hygiene check: verify no dbg! in production code (check 42)
+- [ ] 5160. Final hygiene check: verify no unwrap() in production code (check 42)
+- [ ] 5161. Final hygiene check: verify all public items have rustdoc (check 42)
+- [ ] 5162. Final hygiene check: verify no dead code warnings (check 42)
+- [ ] 5163. Final hygiene check: verify no stray println! in production code (check 43)
+- [ ] 5164. Final hygiene check: verify no dbg! in production code (check 43)
+- [ ] 5165. Final hygiene check: verify no unwrap() in production code (check 43)
+- [ ] 5166. Final hygiene check: verify all public items have rustdoc (check 43)
+- [ ] 5167. Final hygiene check: verify no dead code warnings (check 43)
+- [ ] 5168. Final hygiene check: verify no stray println! in production code (check 44)
+- [ ] 5169. Final hygiene check: verify no dbg! in production code (check 44)
+- [ ] 5170. Final hygiene check: verify no unwrap() in production code (check 44)
+- [ ] 5171. Final hygiene check: verify all public items have rustdoc (check 44)
+- [ ] 5172. Final hygiene check: verify no dead code warnings (check 44)
+- [ ] 5173. Final hygiene check: verify no stray println! in production code (check 45)
+- [ ] 5174. Final hygiene check: verify no dbg! in production code (check 45)
+- [ ] 5175. Final hygiene check: verify no unwrap() in production code (check 45)
+- [ ] 5176. Final hygiene check: verify all public items have rustdoc (check 45)
+- [ ] 5177. Final hygiene check: verify no dead code warnings (check 45)
+- [ ] 5178. Final hygiene check: verify no stray println! in production code (check 46)
+- [ ] 5179. Final hygiene check: verify no dbg! in production code (check 46)
+- [ ] 5180. Final hygiene check: verify no unwrap() in production code (check 46)
+- [ ] 5181. Final hygiene check: verify all public items have rustdoc (check 46)
+- [ ] 5182. Final hygiene check: verify no dead code warnings (check 46)
+- [ ] 5183. Final hygiene check: verify no stray println! in production code (check 47)
+- [ ] 5184. Final hygiene check: verify no dbg! in production code (check 47)
+- [ ] 5185. Final hygiene check: verify no unwrap() in production code (check 47)
+- [ ] 5186. Final hygiene check: verify all public items have rustdoc (check 47)
+- [ ] 5187. Final hygiene check: verify no dead code warnings (check 47)
+- [ ] 5188. Final hygiene check: verify no stray println! in production code (check 48)
+- [ ] 5189. Final hygiene check: verify no dbg! in production code (check 48)
+- [ ] 5190. Final hygiene check: verify no unwrap() in production code (check 48)
+- [ ] 5191. Final hygiene check: verify all public items have rustdoc (check 48)
+- [ ] 5192. Final hygiene check: verify no dead code warnings (check 48)

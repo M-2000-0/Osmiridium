@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry and target
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cargo fmt check
+        run: cargo fmt --check --workspace
+
+      - name: Cargo check workspace
+        run: cargo check --workspace
+
+      - name: Cargo clippy -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings --allow clippy::module_name_repetitions --allow clippy::large_enum_variant --allow clippy::match_same_arms --allow clippy::too_many_arguments --allow clippy::must_use_candidate --allow clippy::missing_errors_doc --allow clippy::similar_names --allow clippy::enum_variant_names --allow clippy::redundant_field_names --allow clippy::default_numeric_fallback --allow clippy::single_char_lifetime_names --allow clippy::type_complexity
+
+      - name: Cargo build workspace
+        run: cargo build --workspace
+
+      - name: Cargo test workspace
+        run: cargo test --workspace
+
+      - name: Cargo audit
+        run: |
+          cargo install cargo-audit --locked || true
+          cargo audit
+
+      - name: Cargo deny
+        run: |
+          cargo install cargo-deny --locked || true
+          cargo deny check licenses
+          cargo deny check bans
+
+      - name: Cargo doc --no-deps
+        run: cargo doc --workspace --no-deps
+
+  security-scan:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build image for scanning
+        run: docker build -t osmiridium:scan .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: osmiridium:scan
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif

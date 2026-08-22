@@ -1,0 +1,52 @@
+{
+  "name": "Weekly Ops Report (Osmiridium)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "weeks", "triggerAtHour": 8, "triggerAtMinute": 0 }] },
+        "options": {}
+      },
+      "id": "n1-report-schedule",
+      "name": "Weekly trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://coordinator:8080/metrics",
+        "options": {}
+      },
+      "id": "n2-report-metrics",
+      "name": "Fetch metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@osmiridium.tech",
+        "toEmail": "you@osmiridium.tech",
+        "subject": "Osmiridium weekly ops report",
+        "emailFormat": "text",
+        "text": "Weekly report:\\n\\n{{ $json }}\\n\\n---\\nGenerated automatically by n8n.\\n",
+        "options": {}
+      },
+      "id": "n3-report-email",
+      "name": "Email report",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "credentials": {
+        "smtp": { "id": "SMTP_CREDENTIAL_ID", "name": "SMTP account" }
+      }
+    }
+  ],
+  "connections": {
+    "Weekly trigger": { "main": [[{ "node": "Fetch metrics", "type": "main", "index": 0 }]] },
+    "Fetch metrics": { "main": [[{ "node": "Email report", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

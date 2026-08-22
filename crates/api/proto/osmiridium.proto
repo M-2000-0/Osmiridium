@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package osmiridium.api.v1;
+
+// The coordinator service exposes session lifecycle management and
+// distributed computation orchestration over gRPC.
+service CoordinatorService {
+  // Health check.
+  rpc Health(HealthRequest) returns (HealthResponse);
+  // Create a new computation session.
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  // Register a participant with a session.
+  rpc AddParticipant(AddParticipantRequest) returns (AddParticipantResponse);
+  // Fetch the current status of a session.
+  rpc GetSession(GetSessionRequest) returns (GetSessionResponse);
+  // Attach a circuit definition to a session.
+  rpc DefineCircuit(DefineCircuitRequest) returns (DefineCircuitResponse);
+  // Execute a session (distributed over the participant endpoints).
+  rpc ExecuteSession(ExecuteSessionRequest) returns (ExecuteSessionResponse);
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+}
+
+message CreateSessionRequest {
+  string name = 1;
+  uint32 num_parties = 2;
+}
+
+message CreateSessionResponse {
+  string session_id = 1;
+}
+
+message AddParticipantRequest {
+  string session_id = 1;
+  uint32 party_id = 2;
+  string name = 3;
+  string endpoint = 4;
+  string role = 5;
+}
+
+message AddParticipantResponse {
+  bool ok = 1;
+}
+
+message GetSessionRequest {
+  string session_id = 1;
+}
+
+message GetSessionResponse {
+  string session_id = 1;
+  string name = 2;
+  string status = 3;
+  uint32 num_participants = 4;
+}
+
+message DefineCircuitRequest {
+  string session_id = 1;
+  // bincode-serialized ArithmeticCircuit.
+  bytes circuit = 2;
+}
+
+message DefineCircuitResponse {
+  bool ok = 1;
+}
+
+message ExecuteSessionRequest {
+  string session_id = 1;
+  // Per-party input shares serialized as wire_id:value pairs.
+  repeated PartyInputs inputs = 2;
+}
+
+message PartyInputs {
+  uint32 party_id = 1;
+  map<uint64, string> values = 2;
+}
+
+message ExecuteSessionResponse {
+  // Reconstructed output per party (all parties compute the same result).
+  repeated PartyOutputs outputs = 1;
+}
+
+message PartyOutputs {
+  uint32 party_id = 1;
+  map<uint64, string> values = 2;
+}

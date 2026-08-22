@@ -1,0 +1,29 @@
+groups:
+  - name: osmiridium
+    rules:
+      - alert: CoordinatorDown
+        expr: up{job="osmiridium"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Coordinator is unreachable"
+          description: "Prometheus cannot scrape {{ $labels.instance }} for 2 minutes."
+
+      - alert: HighErrorRate
+        expr: rate(osmiridium_request_errors_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Rising API error rate"
+          description: "API error rate is above zero over the last 5 minutes."
+
+      - alert: RateLimitHits
+        expr: increase(osmiridium_rate_limited_total[10m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Many requests being rate-limited"
+          description: "More than 100 requests rejected in 10 minutes; check clients or raise OSMOSMPC_RATE_LIMIT."

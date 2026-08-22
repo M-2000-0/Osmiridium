@@ -1,0 +1,35 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+
+# Certificates, keys, secrets
+/data
+*.crt
+*.key
+*.pem
+
+# VCS
+.git/
+.gitignore
+
+# CI
+.github/
+
+# Docs and tooling not needed at build time
+docs/
+tests/
+scripts/
+
+# Local artifacts
+build_output.txt
+check_err.txt
+logo.png
+LAUNCH_READINESS.md
+
+# Editor/OS noise
+.idea/
+.vscode/
+*.swp
+*.swo
+Thumbs.db
+.DS_Store

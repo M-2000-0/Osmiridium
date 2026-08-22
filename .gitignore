@@ -1,0 +1,22 @@
+/target
+**/*.rs.bk
+
+# Certificates and keys
+/data
+*.crt
+*.key
+*.pem
+
+# Test artifacts
+test_cert_dir/
+
+# Build/test logs
+build_output.txt
+test_output.txt
+check_err.txt
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
