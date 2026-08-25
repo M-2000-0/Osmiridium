@@ -7,7 +7,7 @@ version = { workspace = true }
 [dependencies]
 ark-ff = { version = "0.5", features = ["asm", "parallel"] }
 ark-bn254 = "0.5"
-ark-poly = "0.5"
+ark-poly = "0.6"
 ark-serialize = { version = "0.5", features = ["derive"] }
 ark-std = { version = "0.5", features = ["std", "parallel"] }
 rand = "0.8"
