@@ -8,7 +8,7 @@ edition = "2021"
 osmiridium-coordinator = { path = "../coordinator" }
 osmiridium-protocol = { path = "../protocol" }
 osmiridium-network = { path = "../network" }
-tonic = { version = "0.12", features = ["transport"] }
+tonic = { version = "0.14", features = ["transport"] }
 prost = "0.13"
 axum = "0.7"
 tower = "0.5"

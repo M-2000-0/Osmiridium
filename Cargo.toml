@@ -47,7 +47,7 @@ futures-util = "0.3"
 rustls = "0.23"
 
 # API
-tonic = { version = "0.12", features = ["transport"] }
+tonic = { version = "0.14", features = ["transport"] }
 prost = "0.13"
 axum = "0.7"
 tower = "0.5"
