@@ -23,7 +23,7 @@ documentation = "https://docs.osmiridium.tech"
 [workspace.dependencies]
 # Crypto
 ark-ff = { version = "0.5", features = ["asm"] }
-ark-poly = "0.5"
+ark-poly = "0.6"
 ark-std = { version = "0.5", features = ["std"] }
 ark-serialize = { version = "0.5", features = ["derive"] }
 rand = "0.8"
