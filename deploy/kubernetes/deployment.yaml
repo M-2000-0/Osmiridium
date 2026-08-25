@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: osmiridium-coordinator
+  namespace: osmiridium
+  labels:
+    app: osmiridium-coordinator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: osmiridium-coordinator
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: osmiridium-coordinator
+    spec:
+      serviceAccountName: osmiridium
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: coordinator
+          image: ghcr.io/m-2000-0/osmiridium:0.1.0-alpha
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: rest
+            - containerPort: 50051
+              name: grpc
+          envFrom:
+            - configMapRef:
+                name: osmiridium-config
+          env:
+            - name: OSMOSMPC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: osmiridium-secrets
+                  key: api-key
+          volumeMounts:
+            - mountPath: /app/data
+              name: data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 2
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: osmiridium-data
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: osmiridium-party
+  namespace: osmiridium
+spec:
+  serviceName: osmiridium-party
+  replicas: 3
+  selector:
+    matchLabels:
+      app: osmiridium-party
+  template:
+    metadata:
+      labels:
+        app: osmiridium-party
+    spec:
+      containers:
+        - name: party
+          image: ghcr.io/m-2000-0/osmiridium:0.1.0-alpha
+          ports:
+            - containerPort: 9000
+              name: p2p
+          envFrom:
+            - configMapRef:
+                name: osmiridium-config
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi

@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: osmiridium-coordinator
+  namespace: osmiridium
+spec:
+  selector:
+    app: osmiridium-coordinator
+  ports:
+    - name: rest
+      port: 8080
+      targetPort: 8080
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: osmiridium-party
+  namespace: osmiridium
+spec:
+  selector:
+    app: osmiridium-party
+  ports:
+    - port: 9000
+      targetPort: 9000
+  clusterIP: None

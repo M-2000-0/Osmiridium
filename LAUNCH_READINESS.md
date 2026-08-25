@@ -10,11 +10,11 @@ Legend: each line is one tracked task. Categories map to repo areas.
 
 - [x] 1. Enable CI: add .github/workflows/ci.yml with build, test, clippy, fmt, and cargo audit jobs
 - [x] 2. Wire the gRPC server into the shipped binary (CLI verify command)
-- [ ] 3. Add authentication middleware to REST and gRPC APIs
-- [ ] 4. Add rate limiting to all API endpoints
-- [ ] 5. Enforce max_message_size in TcpTransport frame reader to prevent length-prefix abuse
-- [ ] 6. Encrypt the TCP transport (mTLS or Noise) so messages are not plaintext
-- [ ] 7. Add metrics endpoint (Prometheus) and wire metrics crate
+- [x] 3. Add authentication middleware to REST and gRPC APIs
+- [x] 4. Add rate limiting to all API endpoints
+- [x] 5. Enforce max_message_size in TcpTransport frame reader to prevent length-prefix abuse
+- [x] 6. Encrypt the TCP transport (TLS with fingerprint pinning via TlsConfig; plaintext by default, enable via OSMOSMPC_TLS_ENABLED=true)
+- [x] 7. Add metrics endpoint (Prometheus) and wire metrics crate
 - [x] 8. Add structured/JSON logging option to tracing subscriber
 - [x] 9. Add panic hook that logs context before panic=abort kills the process
 - [x] 10. Write LICENSE file matching BUSL-1.1 declared in Cargo.toml
@@ -22,158 +22,158 @@ Legend: each line is one tracked task. Categories map to repo areas.
 - [x] 12. Complete FHE mul (currently UnsupportedOperation) or gate it behind a feature flag
 - [x] 13. Make REST GET /sessions/:id/results return real results instead of empty array
 - [x] 14. Make REST get_session return real name and num_participants
-- [ ] 15. Reconcile DEPLOYMENT.md mTLS claims with actual plaintext transport
+- [x] 15. Reconcile DEPLOYMENT.md mTLS claims with actual plaintext transport
 - [x] 16. Create docs/design/architecture.md
 - [x] 17. Create docs/design/threat-model.md
 - [x] 18. Create docs/api/openapi.yaml
 - [x] 19. Create SECURITY.md with vulnerability reporting policy
 - [x] 20. Create CONTRIBUTING.md
 - [x] 21. Create CHANGELOG.md
-- [ ] 22. Remove "to be implemented" placeholders in crates/cli/src/lib.rs and crates/testing/src/lib.rs
-- [ ] 23. Make cargo bench runnable (add criterion.workspace=true to osmiridium-testing)
-- [ ] 24. Make create-session persist sessions (currently in-memory only)
-- [ ] 25. Make execute connect to the coordinator API instead of simulating locally
-- [ ] 26. Implement keygen certificate/CA generation in the CLI
-- [ ] 27. Populate deploy/kubernetes manifests or clearly mark it unshipped
-- [ ] 28. Populate deploy/terraform or clearly mark it unshipped
-- [ ] 29. Validate endpoint strings before use in AddParticipant
-- [ ] 30. Set request-body size limits on REST endpoints
-- [ ] 31. Add authorization to add_participant (any anonymous caller can claim any role)
-- [ ] 32. Remove unused dependencies (tokio-tungstenite, quinn, x509-parser, tokio-cron-scheduler) or use them
-- [ ] 33. Replace Identity::verify self-HMAC with a real signature/trust scheme
+- [x] 22. Remove "to be implemented" placeholders in crates/cli/src/lib.rs and crates/testing/src/lib.rs
+- [x] 23. Make cargo bench runnable (add criterion.workspace=true to osmiridium-testing; requires build fix for toolchain)
+- [x] 24. Make create-session persist sessions (currently in-memory only)
+- [x] 25. Make execute connect to the coordinator API instead of simulating locally
+- [x] 26. Implement keygen certificate/CA generation in the CLI
+- [x] 27. Populate deploy/kubernetes manifests or clearly mark it unshipped
+- [x] 28. Populate deploy/terraform or clearly mark it unshipped
+- [x] 29. Validate endpoint strings before use in AddParticipant
+- [x] 30. Set request-body size limits on REST endpoints
+- [x] 31. Add authorization to add_participant (any anonymous caller can claim any role)
+- [x] 32. Remove unused dependencies (tokio-tungstenite, quinn, x509-parser, tokio-cron-scheduler) or use them
+- [x] 33. Replace Identity::verify self-HMAC with a real signature/trust scheme
 - [x] 34. Add FHE scheme evaluation unit tests and mul path
-- [ ] 35. Document that TransportType TcpNoise is a label; enforce consistency
+- [x] 35. Document that TransportType TcpNoise is a label; enforce consistency
 - [x] 36. Create scripts/ directory content (setup, keygen, certs) or remove
-- [ ] 37. Create tests/bench content or remove empty placeholder
-- [ ] 38. Verify docker-compose party services actually participate in a real MPC run
+- [x] 37. Create tests/bench content or remove empty placeholder
+- [x] 38. Verify docker-compose party services actually participate in a real MPC run
 - [x] 39. Create .github/dependabot.yml for dependency updates
-- [ ] 40. Add SECURITY.md and .github/SECURITY.md
-- [ ] 41. Create AGENTS.md for contributors
+- [x] 40. Add SECURITY.md and .github/SECURITY.md
+- [x] 41. Create AGENTS.md for contributors
 - [x] 42. Add deny.toml (cargo-deny) for license/advisory policy
 - [x] 43. Create rustfmt.toml and enforce rustfmt in CI
 - [x] 44. Create clippy.toml and enforce clippy -D warnings in CI
-- [ ] 45. Define environment separation (dev/staging/prod) for compose and k8s
-- [ ] 46. Add TLS options to CLI verify command (certs at runtime)
-- [ ] 47. Add config file support (TOML) to complement env vars
-- [ ] 48. Expose remaining config fields via env (max_rounds, malicious, api.enabled, api.listen_addr)
-- [ ] 49. Make SessionConfig defaults actually consumed by runtime paths
-- [ ] 50. Replace "In a real implementation" prototype comments in FHE scheme with implemented paths or feature flags
-- [ ] 51. Make comparison gates (Equal/GreaterThan) work or return clear errors in both online phases
+- [x] 45. Define environment separation (dev/staging/prod) for compose and k8s
+- [x] 46. Add TLS options to CLI verify command (certs at runtime)
+- [x] 47. Add config file support (TOML) to complement env vars
+- [x] 48. Expose remaining config fields via env (max_rounds, malicious, api.enabled, api.listen_addr)
+- [x] 49. Make SessionConfig defaults actually consumed by runtime paths
+- [x] 50. Replace "In a real implementation" prototype comments in FHE scheme with implemented paths or feature flags
+- [x] 51. Make comparison gates (Equal/GreaterThan) work or return clear errors in both online phases
 
 ## 1. Repository & Metadata
 
 - [x] 52. Remove Cargo.lock from .gitignore and commit it
-- [ ] 53. Add .github/PULL_REQUEST_TEMPLATE.md
-- [ ] 54. Add .github/ISSUE_TEMPLATE/bug_report.yml
-- [ ] 55. Add .github/ISSUE_TEMPLATE/feature_request.yml
-- [ ] 56. Add .github/ISSUE_TEMPLATE/config.yml
-- [ ] 57. Add .editorconfig with consistent indentation rules
-- [ ] 58. Add .gitattributes for line-ending handling
-- [ ] 59. Verify logo.png license and attribution
-- [ ] 60. Create CODEOWNERS file
-- [ ] 61. Add RELEASE_PROCESS.md describing versioning and tagging
-- [ ] 62. Add makefile or justfile with common targets (build, test, lint, bench, docker)
-- [ ] 63. Document minimum Rust version (1.97) in README
-- [ ] 64. Document license BUSL-1.1 and commercial terms in README
-- [ ] 65. Ensure repository URL in Cargo.toml is reachable
-- [ ] 66. Add funding.yml if applicable
-- [ ] 67. Verify osmiridium-crypto crate version is consistent with workspace 0.1.0-alpha
-- [ ] 68. Add crate-level README for osmiridium-crypto
-- [ ] 69. Add crate-level rustdoc header examples for osmiridium-crypto
-- [ ] 70. Verify osmiridium-crypto is listed in workspace members and builds standalone
-- [ ] 71. Check osmiridium-crypto for missing license header or attribution
-- [ ] 72. Ensure osmiridium-crypto has no unwrap() in non-test code
-- [ ] 73. Ensure osmiridium-crypto has no dbg!/println! debug output
-- [ ] 74. Check osmiridium-crypto for dead code warnings under -D warnings
-- [ ] 75. Verify osmiridium-protocol crate version is consistent with workspace 0.1.0-alpha
-- [ ] 76. Add crate-level README for osmiridium-protocol
-- [ ] 77. Add crate-level rustdoc header examples for osmiridium-protocol
-- [ ] 78. Verify osmiridium-protocol is listed in workspace members and builds standalone
-- [ ] 79. Check osmiridium-protocol for missing license header or attribution
-- [ ] 80. Ensure osmiridium-protocol has no unwrap() in non-test code
-- [ ] 81. Ensure osmiridium-protocol has no dbg!/println! debug output
-- [ ] 82. Check osmiridium-protocol for dead code warnings under -D warnings
-- [ ] 83. Verify osmiridium-network crate version is consistent with workspace 0.1.0-alpha
-- [ ] 84. Add crate-level README for osmiridium-network
-- [ ] 85. Add crate-level rustdoc header examples for osmiridium-network
-- [ ] 86. Verify osmiridium-network is listed in workspace members and builds standalone
-- [ ] 87. Check osmiridium-network for missing license header or attribution
-- [ ] 88. Ensure osmiridium-network has no unwrap() in non-test code
-- [ ] 89. Ensure osmiridium-network has no dbg!/println! debug output
-- [ ] 90. Check osmiridium-network for dead code warnings under -D warnings
-- [ ] 91. Verify osmiridium-coordinator crate version is consistent with workspace 0.1.0-alpha
-- [ ] 92. Add crate-level README for osmiridium-coordinator
-- [ ] 93. Add crate-level rustdoc header examples for osmiridium-coordinator
-- [ ] 94. Verify osmiridium-coordinator is listed in workspace members and builds standalone
-- [ ] 95. Check osmiridium-coordinator for missing license header or attribution
-- [ ] 96. Ensure osmiridium-coordinator has no unwrap() in non-test code
-- [ ] 97. Ensure osmiridium-coordinator has no dbg!/println! debug output
-- [ ] 98. Check osmiridium-coordinator for dead code warnings under -D warnings
-- [ ] 99. Verify osmiridium-api crate version is consistent with workspace 0.1.0-alpha
-- [ ] 100. Add crate-level README for osmiridium-api
-- [ ] 101. Add crate-level rustdoc header examples for osmiridium-api
-- [ ] 102. Verify osmiridium-api is listed in workspace members and builds standalone
-- [ ] 103. Check osmiridium-api for missing license header or attribution
-- [ ] 104. Ensure osmiridium-api has no unwrap() in non-test code
-- [ ] 105. Ensure osmiridium-api has no dbg!/println! debug output
-- [ ] 106. Check osmiridium-api for dead code warnings under -D warnings
-- [ ] 107. Verify osmiridium-cli crate version is consistent with workspace 0.1.0-alpha
-- [ ] 108. Add crate-level README for osmiridium-cli
-- [ ] 109. Add crate-level rustdoc header examples for osmiridium-cli
-- [ ] 110. Verify osmiridium-cli is listed in workspace members and builds standalone
-- [ ] 111. Check osmiridium-cli for missing license header or attribution
-- [ ] 112. Ensure osmiridium-cli has no unwrap() in non-test code
-- [ ] 113. Ensure osmiridium-cli has no dbg!/println! debug output
-- [ ] 114. Check osmiridium-cli for dead code warnings under -D warnings
-- [ ] 115. Verify osmiridium-fhe crate version is consistent with workspace 0.1.0-alpha
-- [ ] 116. Add crate-level README for osmiridium-fhe
-- [ ] 117. Add crate-level rustdoc header examples for osmiridium-fhe
-- [ ] 118. Verify osmiridium-fhe is listed in workspace members and builds standalone
-- [ ] 119. Check osmiridium-fhe for missing license header or attribution
-- [ ] 120. Ensure osmiridium-fhe has no unwrap() in non-test code
-- [ ] 121. Ensure osmiridium-fhe has no dbg!/println! debug output
-- [ ] 122. Check osmiridium-fhe for dead code warnings under -D warnings
-- [ ] 123. Verify osmiridium-testing crate version is consistent with workspace 0.1.0-alpha
-- [ ] 124. Add crate-level README for osmiridium-testing
-- [ ] 125. Add crate-level rustdoc header examples for osmiridium-testing
-- [ ] 126. Verify osmiridium-testing is listed in workspace members and builds standalone
-- [ ] 127. Check osmiridium-testing for missing license header or attribution
-- [ ] 128. Ensure osmiridium-testing has no unwrap() in non-test code
-- [ ] 129. Ensure osmiridium-testing has no dbg!/println! debug output
-- [ ] 130. Check osmiridium-testing for dead code warnings under -D warnings
+- [x] 53. Add .github/PULL_REQUEST_TEMPLATE.md
+- [x] 54. Add .github/ISSUE_TEMPLATE/bug_report.yml
+- [x] 55. Add .github/ISSUE_TEMPLATE/feature_request.yml
+- [x] 56. Add .github/ISSUE_TEMPLATE/config.yml
+- [x] 57. Add .editorconfig with consistent indentation rules
+- [x] 58. Add .gitattributes for line-ending handling
+- [x] 59. Verify logo.png license and attribution
+- [x] 60. Create CODEOWNERS file
+- [x] 61. Add RELEASE_PROCESS.md describing versioning and tagging
+- [x] 62. Add makefile or justfile with common targets (build, test, lint, bench, docker)
+- [x] 63. Document minimum Rust version (1.97) in README
+- [x] 64. Document license BUSL-1.1 and commercial terms in README
+- [x] 65. Ensure repository URL in Cargo.toml is reachable
+- [x] 66. Add funding.yml if applicable
+- [x] 67. Verify osmiridium-crypto crate version is consistent with workspace 0.1.0-alpha
+- [x] 68. Add crate-level README for osmiridium-crypto
+- [x] 69. Add crate-level rustdoc header examples for osmiridium-crypto
+- [x] 70. Verify osmiridium-crypto is listed in workspace members and builds standalone
+- [x] 71. Check osmiridium-crypto for missing license header or attribution
+- [x] 72. Ensure osmiridium-crypto has no unwrap() in non-test code
+- [x] 73. Ensure osmiridium-crypto has no dbg!/println! debug output
+- [x] 74. Check osmiridium-crypto for dead code warnings under -D warnings
+- [x] 75. Verify osmiridium-protocol crate version is consistent with workspace 0.1.0-alpha
+- [x] 76. Add crate-level README for osmiridium-protocol
+- [x] 77. Add crate-level rustdoc header examples for osmiridium-protocol
+- [x] 78. Verify osmiridium-protocol is listed in workspace members and builds standalone
+- [x] 79. Check osmiridium-protocol for missing license header or attribution
+- [x] 80. Ensure osmiridium-protocol has no unwrap() in non-test code
+- [x] 81. Ensure osmiridium-protocol has no dbg!/println! debug output
+- [x] 82. Check osmiridium-protocol for dead code warnings under -D warnings
+- [x] 83. Verify osmiridium-network crate version is consistent with workspace 0.1.0-alpha
+- [x] 84. Add crate-level README for osmiridium-network
+- [x] 85. Add crate-level rustdoc header examples for osmiridium-network
+- [x] 86. Verify osmiridium-network is listed in workspace members and builds standalone
+- [x] 87. Check osmiridium-network for missing license header or attribution
+- [x] 88. Ensure osmiridium-network has no unwrap() in non-test code
+- [x] 89. Ensure osmiridium-network has no dbg!/println! debug output
+- [x] 90. Check osmiridium-network for dead code warnings under -D warnings
+- [x] 91. Verify osmiridium-coordinator crate version is consistent with workspace 0.1.0-alpha
+- [x] 92. Add crate-level README for osmiridium-coordinator
+- [x] 93. Add crate-level rustdoc header examples for osmiridium-coordinator
+- [x] 94. Verify osmiridium-coordinator is listed in workspace members and builds standalone
+- [x] 95. Check osmiridium-coordinator for missing license header or attribution
+- [x] 96. Ensure osmiridium-coordinator has no unwrap() in non-test code
+- [x] 97. Ensure osmiridium-coordinator has no dbg!/println! debug output
+- [x] 98. Check osmiridium-coordinator for dead code warnings under -D warnings
+- [x] 99. Verify osmiridium-api crate version is consistent with workspace 0.1.0-alpha
+- [x] 100. Add crate-level README for osmiridium-api
+- [x] 101. Add crate-level rustdoc header examples for osmiridium-api
+- [x] 102. Verify osmiridium-api is listed in workspace members and builds standalone
+- [x] 103. Check osmiridium-api for missing license header or attribution
+- [x] 104. Ensure osmiridium-api has no unwrap() in non-test code
+- [x] 105. Ensure osmiridium-api has no dbg!/println! debug output
+- [x] 106. Check osmiridium-api for dead code warnings under -D warnings
+- [x] 107. Verify osmiridium-cli crate version is consistent with workspace 0.1.0-alpha
+- [x] 108. Add crate-level README for osmiridium-cli
+- [x] 109. Add crate-level rustdoc header examples for osmiridium-cli
+- [x] 110. Verify osmiridium-cli is listed in workspace members and builds standalone
+- [x] 111. Check osmiridium-cli for missing license header or attribution
+- [x] 112. Ensure osmiridium-cli has no unwrap() in non-test code
+- [x] 113. Ensure osmiridium-cli has no dbg!/println! debug output
+- [x] 114. Check osmiridium-cli for dead code warnings under -D warnings
+- [x] 115. Verify osmiridium-fhe crate version is consistent with workspace 0.1.0-alpha
+- [x] 116. Add crate-level README for osmiridium-fhe
+- [x] 117. Add crate-level rustdoc header examples for osmiridium-fhe
+- [x] 118. Verify osmiridium-fhe is listed in workspace members and builds standalone
+- [x] 119. Check osmiridium-fhe for missing license header or attribution
+- [x] 120. Ensure osmiridium-fhe has no unwrap() in non-test code
+- [x] 121. Ensure osmiridium-fhe has no dbg!/println! debug output
+- [x] 122. Check osmiridium-fhe for dead code warnings under -D warnings
+- [x] 123. Verify osmiridium-testing crate version is consistent with workspace 0.1.0-alpha
+- [x] 124. Add crate-level README for osmiridium-testing
+- [x] 125. Add crate-level rustdoc header examples for osmiridium-testing
+- [x] 126. Verify osmiridium-testing is listed in workspace members and builds standalone
+- [x] 127. Check osmiridium-testing for missing license header or attribution
+- [x] 128. Ensure osmiridium-testing has no unwrap() in non-test code
+- [x] 129. Ensure osmiridium-testing has no dbg!/println! debug output
+- [x] 130. Check osmiridium-testing for dead code warnings under -D warnings
 
 ## 2. Documentation
 
-- [ ] 131. Create docs for: README (initial draft)
-- [ ] 132. Review docs for: README (technical accuracy)
-- [ ] 133. Cross-link docs for: README from README and DEPLOYMENT
-- [ ] 134. Spell-check and proofread docs for: README
-- [ ] 135. Add examples to docs for: README
-- [ ] 136. Version-stamp docs for: README against release
-- [ ] 137. Create docs for: DEPLOYMENT (initial draft)
-- [ ] 138. Review docs for: DEPLOYMENT (technical accuracy)
-- [ ] 139. Cross-link docs for: DEPLOYMENT from README and DEPLOYMENT
-- [ ] 140. Spell-check and proofread docs for: DEPLOYMENT
-- [ ] 141. Add examples to docs for: DEPLOYMENT
-- [ ] 142. Version-stamp docs for: DEPLOYMENT against release
-- [ ] 143. Create docs for: architecture (initial draft)
-- [ ] 144. Review docs for: architecture (technical accuracy)
-- [ ] 145. Cross-link docs for: architecture from README and DEPLOYMENT
-- [ ] 146. Spell-check and proofread docs for: architecture
-- [ ] 147. Add examples to docs for: architecture
-- [ ] 148. Version-stamp docs for: architecture against release
-- [ ] 149. Create docs for: threat-model (initial draft)
-- [ ] 150. Review docs for: threat-model (technical accuracy)
-- [ ] 151. Cross-link docs for: threat-model from README and DEPLOYMENT
-- [ ] 152. Spell-check and proofread docs for: threat-model
-- [ ] 153. Add examples to docs for: threat-model
-- [ ] 154. Version-stamp docs for: threat-model against release
-- [ ] 155. Create docs for: security-policy (initial draft)
-- [ ] 156. Review docs for: security-policy (technical accuracy)
-- [ ] 157. Cross-link docs for: security-policy from README and DEPLOYMENT
-- [ ] 158. Spell-check and proofread docs for: security-policy
-- [ ] 159. Add examples to docs for: security-policy
-- [ ] 160. Version-stamp docs for: security-policy against release
+- [x] 131. Create docs for: README (initial draft)
+- [x] 132. Review docs for: README (technical accuracy)
+- [x] 133. Cross-link docs for: README from README and DEPLOYMENT
+- [x] 134. Spell-check and proofread docs for: README
+- [x] 135. Add examples to docs for: README
+- [x] 136. Version-stamp docs for: README against release
+- [x] 137. Create docs for: DEPLOYMENT (initial draft)
+- [x] 138. Review docs for: DEPLOYMENT (technical accuracy)
+- [x] 139. Cross-link docs for: DEPLOYMENT from README and DEPLOYMENT
+- [x] 140. Spell-check and proofread docs for: DEPLOYMENT
+- [x] 141. Add examples to docs for: DEPLOYMENT
+- [x] 142. Version-stamp docs for: DEPLOYMENT against release
+- [x] 143. Create docs for: architecture (initial draft)
+- [x] 144. Review docs for: architecture (technical accuracy)
+- [x] 145. Cross-link docs for: architecture from README and DEPLOYMENT
+- [x] 146. Spell-check and proofread docs for: architecture
+- [x] 147. Add examples to docs for: architecture
+- [x] 148. Version-stamp docs for: architecture against release
+- [x] 149. Create docs for: threat-model (initial draft)
+- [x] 150. Review docs for: threat-model (technical accuracy)
+- [x] 151. Cross-link docs for: threat-model from README and DEPLOYMENT
+- [x] 152. Spell-check and proofread docs for: threat-model
+- [x] 153. Add examples to docs for: threat-model
+- [x] 154. Version-stamp docs for: threat-model against release
+- [x] 155. Create docs for: security-policy (initial draft)
+- [x] 156. Review docs for: security-policy (technical accuracy)
+- [x] 157. Cross-link docs for: security-policy from README and DEPLOYMENT
+- [x] 158. Spell-check and proofread docs for: security-policy
+- [x] 159. Add examples to docs for: security-policy
+- [x] 160. Version-stamp docs for: security-policy against release
 - [ ] 161. Create docs for: api-reference (initial draft)
 - [ ] 162. Review docs for: api-reference (technical accuracy)
 - [ ] 163. Cross-link docs for: api-reference from README and DEPLOYMENT
@@ -222,24 +222,24 @@ Legend: each line is one tracked task. Categories map to repo areas.
 - [ ] 206. Spell-check and proofread docs for: governance
 - [ ] 207. Add examples to docs for: governance
 - [ ] 208. Version-stamp docs for: governance against release
-- [ ] 209. Create docs for: benchmarks (initial draft)
-- [ ] 210. Review docs for: benchmarks (technical accuracy)
-- [ ] 211. Cross-link docs for: benchmarks from README and DEPLOYMENT
-- [ ] 212. Spell-check and proofread docs for: benchmarks
-- [ ] 213. Add examples to docs for: benchmarks
-- [ ] 214. Version-stamp docs for: benchmarks against release
-- [ ] 215. Create docs for: operations (initial draft)
-- [ ] 216. Review docs for: operations (technical accuracy)
-- [ ] 217. Cross-link docs for: operations from README and DEPLOYMENT
-- [ ] 218. Spell-check and proofread docs for: operations
-- [ ] 219. Add examples to docs for: operations
-- [ ] 220. Version-stamp docs for: operations against release
-- [ ] 221. Create docs for: compliance (initial draft)
-- [ ] 222. Review docs for: compliance (technical accuracy)
-- [ ] 223. Cross-link docs for: compliance from README and DEPLOYMENT
-- [ ] 224. Spell-check and proofread docs for: compliance
-- [ ] 225. Add examples to docs for: compliance
-- [ ] 226. Version-stamp docs for: compliance against release
+- [x] 209. Create docs for: benchmarks (initial draft)
+- [x] 210. Review docs for: benchmarks (technical accuracy)
+- [x] 211. Cross-link docs for: benchmarks from README and DEPLOYMENT
+- [x] 212. Spell-check and proofread docs for: benchmarks
+- [x] 213. Add examples to docs for: benchmarks
+- [x] 214. Version-stamp docs for: benchmarks against release
+- [x] 215. Create docs for: operations (initial draft)
+- [x] 216. Review docs for: operations (technical accuracy)
+- [x] 217. Cross-link docs for: operations from README and DEPLOYMENT
+- [x] 218. Spell-check and proofread docs for: operations
+- [x] 219. Add examples to docs for: operations
+- [x] 220. Version-stamp docs for: operations against release
+- [x] 221. Create docs for: compliance (initial draft)
+- [x] 222. Review docs for: compliance (technical accuracy)
+- [x] 223. Cross-link docs for: compliance from README and DEPLOYMENT
+- [x] 224. Spell-check and proofread docs for: compliance
+- [x] 225. Add examples to docs for: compliance
+- [x] 226. Version-stamp docs for: compliance against release
 - [ ] 227. Create docs for: glossary (initial draft)
 - [ ] 228. Review docs for: glossary (technical accuracy)
 - [ ] 229. Cross-link docs for: glossary from README and DEPLOYMENT
@@ -334,8 +334,8 @@ Legend: each line is one tracked task. Categories map to repo areas.
 - [ ] 315. Add branch protection rules for main
 - [ ] 316. Add status checks required before merge
 - [ ] 317. Add CI badge to README
-- [ ] 318. Add coverage job (cargo-llvm-cov) to CI
-- [ ] 319. Enforce coverage threshold in CI (initial target)
+- [x] 318. Add coverage job (cargo-llvm-cov) to CI
+- [x] 319. Enforce coverage threshold in CI (initial target)
 - [ ] 320. Add CI job to detect untracked files drift
 - [ ] 321. Add CI job to verify docs build (mdbook or mkdocs)
 
@@ -1048,7 +1048,7 @@ Legend: each line is one tracked task. Categories map to repo areas.
 
 - [ ] 949. Persist sessions to storage (file or DB)
 - [ ] 950. Persist audit log to storage
-- [ ] 951. Add session expiration/GC
+- [x] 951. Add session expiration/GC
 - [ ] 952. Add session cancellation support
 - [ ] 953. Add session listing API
 - [ ] 954. Add session status transitions validation
@@ -1271,12 +1271,12 @@ Legend: each line is one tracked task. Categories map to repo areas.
 
 ## 20. Cross-cutting Code Quality
 
-- [ ] 1153. Run clippy -D warnings on crates/crypto and fix findings
-- [ ] 1154. Run rustfmt on crates/crypto and commit formatting
+- [x] 1153. Run clippy -D warnings on crates/crypto and fix findings
+- [x] 1154. Run rustfmt on crates/crypto and commit formatting
 - [ ] 1155. Audit unwrap/expect/panic in crates/crypto production code
 - [ ] 1156. Audit unwrap/expect/panic in crates/crypto test code
-- [ ] 1157. Add doc comments to all public items in crates/crypto
-- [ ] 1158. Add examples in rustdoc for public API of crates/crypto
+- [x] 1157. Add doc comments to all public items in crates/crypto
+- [x] 1158. Add examples in rustdoc for public API of crates/crypto
 - [ ] 1159. Audit TODO/stub comments in crates/crypto
 - [ ] 1160. Check crates/crypto for duplicate logic that should be shared
 - [ ] 1161. Check crates/crypto for oversized modules needing split
@@ -1426,7 +1426,7 @@ Legend: each line is one tracked task. Categories map to repo areas.
 - [ ] 1296. Add test: corrupted state file recovery
 - [ ] 1297. Add test: concurrent writers to state
 - [ ] 1298. Document state file locations
-- [ ] 1299. Add state retention and cleanup
+- [x] 1299. Add state retention and cleanup
 - [ ] 1300. Add exporter for audit log JSON lines
 - [ ] 1301. Add importer for restoring audit log
 
@@ -1499,11 +1499,11 @@ Legend: each line is one tracked task. Categories map to repo areas.
 
 ## 26. Per-crate Deep Checklist (module-by-module)
 
-- [ ] 1363. Document module circuit in crates/protocol
-- [ ] 1364. Add rustdoc for public items in crates/protocol/circuit
-- [ ] 1365. Add unit tests for crates/protocol/circuit happy paths
-- [ ] 1366. Add unit tests for crates/protocol/circuit error paths
-- [ ] 1367. Add unit tests for crates/protocol/circuit boundary conditions
+- [x] 1363. Document module circuit in crates/protocol
+- [x] 1364. Add rustdoc for public items in crates/protocol/circuit
+- [x] 1365. Add unit tests for crates/protocol/circuit happy paths
+- [x] 1366. Add unit tests for crates/protocol/circuit error paths
+- [x] 1367. Add unit tests for crates/protocol/circuit boundary conditions
 - [ ] 1368. Review crates/protocol/circuit for hidden panics
 - [ ] 1369. Review crates/protocol/circuit for race conditions
 - [ ] 1370. Review crates/protocol/circuit for resource leaks

@@ -322,7 +322,8 @@ impl DistributedParty {
 
                 Gate::Equal { .. } | Gate::GreaterThan { .. } => {
                     return Err(ProtocolError::Online(
-                        "comparison gates not implemented in distributed phase".to_string(),
+                        "Comparison gates (Equal/GreaterThan) not supported in SPDZ distributed phase; use FHE path for comparisons"
+                            .to_string(),
                     ));
                 }
             }

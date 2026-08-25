@@ -1,0 +1,137 @@
+{
+  "name": "Proposal Acceptance & Contract Initiation",
+  "nodes": [
+    {
+      "parameters": {
+        "interval": [{ "field": "minutes", "triggerAt": 5 }]
+      },
+      "id": "n1-poll-accept",
+      "name": "Poll for Accept Reply",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://osmiridium.example.com/accept?email={{ $json.email }}",
+        "options": {}
+      },
+      "id": "n2-check-accept",
+      "name": "Check Accept Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "accepted",
+              "leftValue": "={{ $json.accepted }}",
+              "rightValue": "true",
+              "operator": { "type": "boolean", "operation": "is" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n3-if-accepted",
+      "name": "Proposal Accepted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": "appYourAirtableBaseId",
+        "table": "Leads",
+        "records": "={{ $json.leadId }}",
+        "fields": {
+          "Status": "Contracted"
+        },
+        "options": {}
+      },
+      "id": "n4-airtable-update-contracted",
+      "name": "Set Lead Status = Contracted",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, -120]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": "appYourAirtableBaseId",
+        "table": "Contracts",
+        "fields": {
+          "Lead": "={{ $json.leadId }}",
+          "MSA": "={{ $json.msaUrl }}",
+          "Payment_Schedule": "30/40/30 (upfront/milestone/final)",
+          "Start_Date": "={{ $now }}",
+          "Status": "Active"
+        },
+        "options": {}
+      },
+      "id": "n5-airtable-create-contract",
+      "name": "Create Contract Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@osmiridium.tech",
+        "toEmail": "you@osmiridium.tech",
+        "subject": "Contract Activated: {{ $json.name }}",
+        "emailFormat": "text",
+        "text": "The SMPC feasibility study contract is now active.\nLead: {{ $json.name }}\nCompany: {{ $json.company }}\nStart Date: {{ formatDate($now, 'YYYY-MM-DD') }}\nNext Step: schedule onboarding session (see runbook).",
+        "options": {}
+      },
+      "id": "n6-email-contract-activated",
+      "name": "Email Contract Activated",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "credentials": {
+        "smtp": { "id": "SMTP_CREDENTIAL_ID", "name": "SMTP account" }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@osmiridium.tech",
+        "toEmail": "client@company.com",
+        "subject": "Welcome to Osmiridium SMPC Pilot",
+        "emailFormat": "html",
+        "html": "<p>Hello {{ $json.name }},</p><p>Welcome to the pilot! Your contract is now active. <a href='https://osmiridium.example.com/onboard'>Onboarding Guide</a> and <a href='https://osmiridium.example.com/keys'>Key‑Share Setup Instructions</a> are available.</p><p>We’ll schedule a kickoff call within the next 3 business days.</p><p>Best,<br>The Osmiridium Team</p>",
+        "options": {}
+      },
+      "id": "n7-email-welcome",
+      "name": "Send Welcome Email to Client",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [880, 240],
+      "credentials": {
+        "smtp": { "id": "SMTP_CREDENTIAL_ID", "name": "SMTP account" }
+      }
+    }
+  ],
+  "connections": {
+    "Poll for Accept Reply": { "main": [[{ "node": "Check Accept Status", "type": "main", "index": 0 }]] },
+    "Check Accept Status": { "main": [[{ "node": "Proposal Accepted?", "type": "main", "index": 0 }], []] },
+    "Proposal Accepted?": {
+      "main": [
+        [{ "node": "Set Lead Status = Contracted", "type": "main", "index": 0 }],
+        [{ "node": "Email Contract Activated", "type": "main", "index": 0 }]
+      ]
+    },
+    "Set Lead Status = Contracted": { "main": [[{ "node": "Create Contract Record", "type": "main", "index": 0 }], []] },
+    "Create Contract Record": { "main": [[{ "node": "Email Contract Activated", "type": "main", "index": 0 }], []] },
+    "Email Contract Activated": { "main": [[{ "node": "Send Welcome Email to Client", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

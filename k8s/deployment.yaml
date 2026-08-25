@@ -1,0 +1,196 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: osmiridium-config
+  namespace: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+generatorName: osmiridium-generate-config
+binaryData:
+  OSMOSMPC_LISTEN_ADDR: "0.0.0.0"
+  OSMOSMPC_LISTEN_PORT: "9000"
+  OSMOSMPC_NUM_PARTIES: "3"
+  OSMOSMPC_PARTY_ID: "0"
+  OSMOSMPC_TLS_ENABLED: "false"
+  OSMOSMPC_CERT_DIR: "./data/certs"
+  OSMOSMPC_SECURITY_BITS: "128"
+  OSMOSMPC_API_PORT: "8080"
+  OSMOSMPC_LOG_FORMAT: "text"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: osmiridium-tls
+  namespace: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+type: kubernetes.io/tls
+data:
+  tls.crt: <certificate-base64>
+  tls.key: <private-key-base64>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: osmiridium-coordinator
+  namespace: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+    app.kubernetes.io/instance: 0.1.0-alpha
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: osmiridium-coordinator
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - name: grpc
+      protocol: TCP
+      port: 50051
+      targetPort: 50051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: osmiridium-coordinator
+  namespace: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+    app.kubernetes.io/instance: 0.1.0-alpha
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: osmiridium-coordinator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: osmiridium-coordinator
+    spec:
+      containers:
+        - name: coordinator
+          image: ghcr.io/M-2000-0/osmiridium:0.1.0-alpha
+          envFrom:
+            - configMapRef:
+                name: osmiridium-config
+            - secretRef:
+                name: osmiridium-tls
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 50051
+              name: grpc
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: osmiridium-networkpolicy
+  namespace: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+    app.kubernetes.io/instance: 0.1.0-alpha
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: osmiridium
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: osmiridium-party
+        - namespaceSelector:
+            matchNames:
+              - osmiridium
+    - from:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+            except:
+              - 10.0.0.1/32
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: osmiridium-party
+        - namespaceSelector:
+            matchNames:
+              - osmiridium
+        - ipBlock:
+            cidr: 10.0.0.0/8
+            except:
+              - 10.0.0.1/32
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: osmiridium-coordinator-hpa
+  namespace: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+    app.kubernetes.io/instance: 0.1.0-alpha
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: osmiridium-coordinator
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: monitoring.core.v1
+kind: ServiceMonitor
+metadata:
+  name: osmiridium-coordinator
+  namespace: osmiridium-monitoring
+  labels:
+    app.kubernetes.io/name: osmiridium
+    app.kubernetes.io/instance: 0.1.0-alpha
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: osmiridium-coordinator
+  port: http
+  interval: 15s
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: osmiridium-coordinator-pdb
+  namespace: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+    app.kubernetes.io/instance: 0.1.0-alpha
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: osmiridium-coordinator

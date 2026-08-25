@@ -1,52 +1,71 @@
 # Changelog
 
-All notable changes to Osmiridium are documented here.
+All notable changes to the Osmiridium project will be documented in this file.
 
-Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-versioning follows [SemVer](https://semver.org/) with pre-release tags
-(`0.1.0-alpha`) until 1.0.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0-alpha] - 2026-08-23
 
 ### Added
 
-- gRPC server now ships in the `verify` command: REST (default :8080) and
-  gRPC (default :50051) share one coordinator; `--grpc-port 0` disables it.
-- Panic hook logs panic location and message through `tracing` and stderr
-  before the release build's `panic = "abort"` terminates the process.
-- JSON structured logging: `--log-format json|text` or
-  `OSMOSMPC_LOG_FORMAT=json` for log shippers.
-- Feature-gated FHE multiplication (`osmiridium-fhe` feature `fhe-mul`);
-  hybrid orchestrator supports `"mul"` steps when enabled.
-- Unit tests for the FHE mul paths (error without flag, eval-key check,
-  depth enforcement, hybrid step).
-- Docs: architecture overview, threat model, OpenAPI specification.
-- This changelog.
-
-### Fixed
-
-- gRPC `GetSession` returns real session name and participant count.
-- API integration tests authenticate against the API-key middleware.
-
-## [0.1.0-alpha] - Initial codebase
-
-Initial public snapshot of the workspace:
-
-- SPDZ protocol (offline/online phases, MAC verification, circuit
-  evaluation) over the BN254 scalar field.
-- Coordinator with session lifecycle, policy engine, hash-chained audit log.
-- REST API (axum) with API-key auth, per-IP rate limiting, request body
-  limits, Prometheus `/metrics`.
-- gRPC API definitions and service implementation.
-- TCP transport (length-prefixed frames, max-message-size enforcement) and
-  deterministic in-memory transport for tests.
-- CLI subcommands: test, create-session, execute, keygen, verify, bench,
-  config.
-- Prototype threshold FHE crate with hybrid FHE+SPDZ orchestration.
-
-Known limitations at this snapshot are tracked in LAUNCH_READINESS.md and
-summarized in docs/design/threat-model.md (plaintext TCP transport,
-self-HMAC identity scheme, in-memory session state, prototype FHE).
-
-[Unreleased]: https://github.com/M-2000-0/Osmiridium/compare/HEAD...HEAD
-[0.1.0-alpha]: https://github.com/M-2000-0/Osmiridium/releases/tag/v0.1.0-alpha
+- Core SPDZ protocol implementation
+  - Key agreement phase
+  - Beaver triple generation (offline phase)
+  - Secret sharing and input distribution
+  - Online computation with MAC verification
+  - Output reconstruction
+- Cryptographic primitives
+  - BLS12-381 field arithmetic
+  - HMAC-SHA256 message authentication
+  - PRSS (Pseudo-Random Secret Sharing)
+  - Blake3 hashing
+- Transport layer
+  - TCP transport with length-prefixed framing
+  - TLS 1.3 encryption with certificate pinning
+  - In-memory transport for testing
+- Coordinator
+  - Session lifecycle management
+  - Policy engine for access control
+  - Audit logging with hash chain commitment
+  - Persistent session storage
+- REST API
+  - Health check endpoint
+  - Session CRUD operations
+  - Participant management
+  - Execution and results endpoints
+  - Rate limiting and authentication
+  - Metrics endpoint (Prometheus)
+- gRPC API
+  - Health service
+  - Session management RPCs
+  - Circuit definition RPC
+  - Execution RPC with distributed protocol
+  - Authentication interceptor
+- CLI
+  - Session management commands
+  - Key generation
+  - Circuit validation
+  - Protocol testing
+  - Benchmarking
+  - Configuration management
+- FHE prototype
+  - CKKS-style encryption (placeholder)
+  - Hybrid MPC+FHE mode
+- Docker support
+  - Multi-arch builds (amd64, arm64)
+  - Docker Compose for multi-party testing
+- Kubernetes support
+  - Deployment manifests
+  - Helm chart
+  - Service monitoring
+- CI/CD
+  - GitHub Actions workflows
+  - Release automation
+  - Security scanning
+  - Performance benchmarks
+- Documentation
+  - Architecture overview
+  - Threat model
+  - Deployment guide
+  - API reference

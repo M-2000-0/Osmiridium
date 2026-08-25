@@ -23,11 +23,120 @@ use osmiridium_protocol::crypto::field::Scalar;
 use osmiridium_protocol::crypto::traits::ToBytes;
 use osmiridium_protocol::ArithmeticCircuit;
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::Mutex;
 use tonic::{Request, Response, Status};
 
 type SharedCoordinator = Arc<Mutex<Coordinator>>;
+
+// ── gRPC auth & rate-limiting interceptor ──────────────────────────────────
+
+/// API-key configuration shared by REST and gRPC servers.
+#[derive(Clone, Debug)]
+struct GrpcApiKeyConfig {
+    key: String,
+}
+
+impl Default for GrpcApiKeyConfig {
+    fn default() -> Self {
+        Self {
+            key: std::env::var("OSMOSMPC_API_KEY").unwrap_or_else(|_| "changeme".to_string()),
+        }
+    }
+}
+
+/// Simple per-IP rate limiter for gRPC (in-memory, 60s window).
+struct GrpcRateLimiter {
+    requests_per_minute: u32,
+    counters: Mutex<std::collections::HashMap<String, (u32, std::time::Instant)>>,
+}
+
+impl GrpcRateLimiter {
+    fn new() -> Self {
+        Self {
+            requests_per_minute: std::env::var("OSMOSMPC_RATE_LIMIT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(60),
+            counters: Mutex::new(std::collections::HashMap::new()),
+        }
+    }
+
+    async fn check(&self, client_ip: &str) -> bool {
+        let mut counters = self.counters.lock().await;
+        let now = std::time::Instant::now();
+        let entry = counters.entry(client_ip.to_string()).or_insert((0, now));
+        if now.duration_since(entry.1).as_secs() >= 60 {
+            *entry = (1, now);
+            return true;
+        }
+        entry.0 += 1;
+        entry.0 <= self.requests_per_minute
+    }
+}
+
+static GRPC_RATE_LIMITER: OnceLock<GrpcRateLimiter> = OnceLock::new();
+
+/// tonic interceptor that enforces API-key auth and per-IP rate limiting on
+/// every gRPC RPC except Health.
+///
+/// Note: tonic 0.12 interceptors are synchronous and run per-service via
+/// `with_interceptor`. Rate-limiting is done via an atomic counter with a
+/// 60-second sliding window approximation (sufficient for launch).
+fn grpc_auth_interceptor(req: Request<()>) -> Result<Request<()>, Status> {
+    // Health check is exempt from auth and rate limiting.
+    // tonic encodes the method name in the HTTP/2 :path pseudo-header.
+    let is_health = req
+        .metadata()
+        .get(":path")
+        .and_then(|v| v.to_str().ok())
+        .map(|p| p.contains("Health"))
+        .unwrap_or(false);
+    if is_health {
+        return Ok(req);
+    }
+
+    let config = GrpcApiKeyConfig::default();
+
+    // Extract API key from metadata.
+    let api_key = req
+        .metadata()
+        .get("x-api-key")
+        .and_then(|v| v.to_str().ok())
+        .or_else(|| {
+            req.metadata()
+                .get("authorization")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.strip_prefix("Bearer "))
+        });
+
+    match api_key {
+        Some(key) if key == config.key => {
+            // Auth passed — check rate limit.
+            let limiter = GRPC_RATE_LIMITER.get_or_init(GrpcRateLimiter::new);
+            // Extract client IP from x-forwarded-for or mark unknown.
+            let client_ip = req
+                .metadata()
+                .get("x-forwarded-for")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("unknown")
+                .to_string();
+            // We block on the async limiter via a new tokio runtime handle.
+            // This is acceptable because tonic interceptors run on a tokio
+            // worker thread already.
+            let allowed = tokio::task::block_in_place(|| {
+                tokio::runtime::Handle::current().block_on(limiter.check(&client_ip))
+            });
+            if !allowed {
+                tracing::warn!(client_ip = %client_ip, "gRPC rate limit exceeded");
+                return Err(Status::resource_exhausted("rate limit exceeded"));
+            }
+            Ok(req)
+        }
+        Some(_) => Err(Status::unauthenticated("invalid API key")),
+        None => Err(Status::unauthenticated("missing API key")),
+    }
+}
 
 /// gRPC service implementation backed by the in-memory coordinator.
 #[derive(Clone)]
@@ -237,7 +346,10 @@ pub async fn run_grpc_server_with_coordinator(
     let service = CoordinatorGrpcService::new(coordinator);
 
     Server::builder()
-        .add_service(CoordinatorServiceServer::new(service))
+        .add_service(CoordinatorServiceServer::with_interceptor(
+            service,
+            grpc_auth_interceptor,
+        ))
         .serve(addr)
         .await
 }

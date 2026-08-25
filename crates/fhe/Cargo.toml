@@ -1,6 +1,7 @@
 [package]
 name = "osmiridium-fhe"
 description = "Hybrid FHE components for non-interactive computation"
+version = { workspace = true }
 edition = "2021"
 
 [features]

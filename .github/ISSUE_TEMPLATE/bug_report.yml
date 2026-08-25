@@ -1,0 +1,46 @@
+name: Bug report
+description: Report a bug in Osmiridium
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug report. Please provide a clear description and reproduction steps.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Workspace version (e.g. 0.1.0-alpha) and commit if known
+      placeholder: "0.1.0-alpha"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Minimal steps, commands, or circuit that reproduces the issue
+      placeholder: |
+        1. cargo run -p osmiridium-cli -- test --parties 3
+        2. ...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / output
+      description: Paste relevant logs (redact secrets). Use `RUST_LOG=osmiridium=debug`.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues
+          required: true
+        - label: I can reproduce on main
+          required: false

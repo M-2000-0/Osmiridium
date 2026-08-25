@@ -1,195 +1,205 @@
-openapi: 3.0.3
+openapi: "3.0.3"
 info:
-  title: Osmiridium Coordinator API
+  title: Osmiridium SMPC API
   description: |
-    REST interface for session management and secure multi-party computation.
+    REST API for the Osmiridium secure multi-party computation platform.
+    Manages sessions, participants, and computation execution.
+  version: "0.1.0-alpha"
+  license:
+    name: BUSL-1.1
+    url: https://github.com/osmiridium/osmiridium/blob/main/LICENSE
 
-    Protected endpoints require an API key sent either as the `x-api-key`
-    header or as a Bearer token in `Authorization`. Override the server-side
-    key with the `OSMOSMPC_API_KEY` environment variable.
-  version: 0.1.0-alpha
 servers:
-  - url: http://localhost:8080
-    description: Local development (osmiridium verify)
-tags:
-  - name: ops
-    description: Health and metrics
-  - name: sessions
-    description: Computation session lifecycle
+  - url: http://localhost:9000
+    description: Local development server
+
+security:
+  - ApiKeyAuth: []
 
 paths:
   /health:
     get:
-      tags: [ops]
-      summary: Liveness probe
+      summary: Health check
+      description: Returns server health status and version.
+      tags: [Health]
       security: []
       responses:
-        '200':
-          description: Service is up
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  version:
+                    type: string
+                    example: "0.1.0-alpha"
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      description: Returns metrics in Prometheus text format.
+      tags: [Metrics]
+      security: []
+      responses:
+        "200":
+          description: Metrics in Prometheus format
           content:
             text/plain:
               schema:
                 type: string
-                example: ok
-
-  /metrics:
-    get:
-      tags: [ops]
-      summary: Prometheus metrics
-      security: []
-      description: |
-        Counter exposition in Prometheus text format (version 0.0.4).
-        Exposed without auth by design; restrict at the network layer.
-      responses:
-        '200':
-          description: Metrics snapshot
-          content:
-            text/plain; version=0.0.4:
-              schema:
-                type: string
 
   /sessions:
+    get:
+      summary: List sessions
+      description: Returns all sessions.
+      tags: [Sessions]
+      responses:
+        "200":
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SessionInfo"
     post:
-      tags: [sessions]
-      summary: Create a computation session
+      summary: Create session
+      description: Creates a new computation session.
+      tags: [Sessions]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateSessionRequest'
+              $ref: "#/components/schemas/CreateSessionRequest"
       responses:
-        '201':
+        "201":
           description: Session created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionInfo'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '429':
-          $ref: '#/components/responses/RateLimited'
-        '500':
-          $ref: '#/components/responses/Internal'
+                $ref: "#/components/schemas/SessionInfo"
+        "400":
+          $ref: "#/components/responses/BadRequest"
 
   /sessions/{id}:
     get:
-      tags: [sessions]
-      summary: Get session status
+      summary: Get session
+      description: Returns session details.
+      tags: [Sessions]
       parameters:
-        - $ref: '#/components/parameters/SessionId'
+        - $ref: "#/components/parameters/SessionId"
       responses:
-        '200':
-          description: Session found
+        "200":
+          description: Session details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SessionInfo'
-        '400':
-          description: Session id is not a UUID
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          description: Unknown session id
+                $ref: "#/components/schemas/SessionInfo"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /sessions/{id}/participants:
     post:
-      tags: [sessions]
-      summary: Add a participant to a session
+      summary: Add participant
+      description: Adds a participant to a session.
+      tags: [Participants]
       parameters:
-        - $ref: '#/components/parameters/SessionId'
+        - $ref: "#/components/parameters/SessionId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AddParticipantRequest'
+              $ref: "#/components/schemas/AddParticipantRequest"
       responses:
-        '200':
-          description: Participant registered
-        '400':
-          description: Bad UUID, malformed body, or unknown role
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          description: Policy denied registration
-        '404':
-          description: Unknown session id
+        "200":
+          description: Participant added
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
   /sessions/{id}/execute:
     post:
-      tags: [sessions]
-      summary: Execute the session's circuit
+      summary: Execute session
+      description: Executes the computation for a session.
+      tags: [Execution]
       parameters:
-        - $ref: '#/components/parameters/SessionId'
+        - $ref: "#/components/parameters/SessionId"
       responses:
-        '200':
-          description: Execution finished; hex-encoded output values per wire
+        "200":
+          description: Execution completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Results'
-        '400':
-          description: Session id is not a UUID
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '500':
-          description: Protocol failure during execution
+                $ref: "#/components/schemas/ExecuteResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /sessions/{id}/results:
     get:
-      tags: [sessions]
-      summary: Fetch stored results for a session
+      summary: Get results
+      description: Returns execution results for a completed session.
+      tags: [Execution]
       parameters:
-        - $ref: '#/components/parameters/SessionId'
+        - $ref: "#/components/parameters/SessionId"
       responses:
-        '200':
-          description: Results (possibly empty if not executed yet)
+        "200":
+          description: Execution results
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Results'
-        '400':
-          description: Session id is not a UUID
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          description: Unknown session id
+                $ref: "#/components/schemas/ExecuteResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sessions/{id}/cancel:
+    post:
+      summary: Cancel session
+      description: Cancels a pending or configured session.
+      tags: [Sessions]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session cancelled
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key for authentication
+
   parameters:
     SessionId:
       name: id
       in: path
       required: true
-      description: Session UUID
       schema:
         type: string
         format: uuid
-
-  responses:
-    Unauthorized:
-      description: Missing or invalid API key
-    RateLimited:
-      description: Per-IP request quota exceeded (OSMOSMPC_RATE_LIMIT/min)
-    Internal:
-      description: Unexpected coordinator failure
+      description: Session UUID
 
   schemas:
-    CreateSessionRequest:
-      type: object
-      required: [name, num_parties]
-      properties:
-        name:
-          type: string
-          minLength: 1
-        num_parties:
-          type: integer
-          minimum: 1
-
     SessionInfo:
       type: object
-      required: [id, name, status, num_participants]
       properties:
         id:
           type: string
@@ -198,9 +208,22 @@ components:
           type: string
         status:
           type: string
-          description: Debug-formatted SessionStatus variant (e.g. "Created")
+          enum: [Created, Configured, Running, Completed, Failed, Cancelled]
         num_participants:
           type: integer
+
+    CreateSessionRequest:
+      type: object
+      required: [name, num_parties]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 128
+        num_parties:
+          type: integer
+          minimum: 2
+          maximum: 64
 
     AddParticipantRequest:
       type: object
@@ -211,32 +234,59 @@ components:
           minimum: 0
         name:
           type: string
+          minLength: 1
+          maxLength: 128
         endpoint:
           type: string
-          description: host:port reachability hint for this party
+          description: "host:port format"
+          maxLength: 256
         role:
           type: string
           enum: [DataProvider, ComputationRunner, Auditor, Administrator]
 
-    Results:
+    ExecuteResponse:
       type: object
-      required: [results]
       properties:
         results:
           type: array
           items:
             type: string
-          description: Hex-encoded field element outputs, one per output wire
+          description: Hex-encoded output values
 
-  securitySchemes:
-    ApiKeyHeader:
-      type: apiKey
-      in: header
-      name: x-api-key
-    BearerAuth:
-      type: http
-      scheme: bearer
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: integer
+        message:
+          type: string
+        details:
+          type: string
 
-security:
-  - ApiKeyHeader: []
-  - BearerAuth: []
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Conflict with current state
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"

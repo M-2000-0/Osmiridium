@@ -10,6 +10,7 @@ services:
     environment:
       OSMOSMPC_API_KEY: "${OSMOSMPC_API_KEY:-changeme}"
       OSMOSMPC_RATE_LIMIT: "${OSMOSMPC_RATE_LIMIT:-60}"
+      OSMOSMPC_DATA_DIR: "/app/data/sessions"
       RUST_LOG: "${RUST_LOG:-osmiridium=info}"
     volumes:
       - ./data:/app/data

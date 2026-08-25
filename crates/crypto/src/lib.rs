@@ -1,3 +1,17 @@
+//! Cryptographic primitives for Osmiridium SMPC.
+//!
+//! BN254 scalar field (ark-ff), additive/Shamir sharing, information-theoretic
+//! MACs, PRSS, OT, and hashing. Re-exports `ark_ff` for field arithmetic.
+//!
+//! ```rust
+//! use osmiridium_crypto::field::Scalar;
+//! use osmiridium_crypto::sharing::{AdditiveShare, SharingScheme};
+//! let secret = Scalar::from_u64(42);
+//! let shares = AdditiveShare::<Scalar>::split(&secret, 3, 0).unwrap();
+//! let recon = AdditiveShare::<Scalar>::reconstruct(&shares).unwrap();
+//! assert_eq!(recon, secret);
+//! ```
+
 pub mod error;
 pub mod field;
 pub mod hash;

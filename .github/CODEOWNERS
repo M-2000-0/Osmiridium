@@ -1,0 +1,14 @@
+# CODEOWNERS for Osmiridium
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @M-2000-0
+/docs/ @M-2000-0
+/crates/crypto/ @M-2000-0
+/crates/protocol/ @M-2000-0
+/crates/network/ @M-2000-0
+/crates/coordinator/ @M-2000-0
+/crates/api/ @M-2000-0
+/crates/cli/ @M-2000-0
+/crates/fhe/ @M-2000-0
+/crates/testing/ @M-2000-0
+/.github/workflows/ @M-2000-0

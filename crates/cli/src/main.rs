@@ -35,6 +35,10 @@ struct Cli {
     #[arg(long, value_enum)]
     log_format: Option<LogFormat>,
 
+    /// Config file path (TOML). Also via OSMOSMPC_CONFIG env var.
+    #[arg(long)]
+    config: Option<String>,
+
     #[command(subcommand)]
     command: Commands,
 }
@@ -68,7 +72,7 @@ enum Commands {
         #[arg(short, long, default_value_t = 3)]
         parties: usize,
     },
-    /// Run the API server
+    /// Run the API server (REST + gRPC) with optional TLS
     Verify {
         /// Listen address
         #[arg(short, long, default_value = "0.0.0.0")]
@@ -78,6 +82,15 @@ enum Commands {
         /// gRPC listen port (0 disables the gRPC server)
         #[arg(short = 'g', long, default_value_t = 50051)]
         grpc_port: u16,
+        /// TLS certificate path (enables TLS when set; also via OSMOSMPC_TLS_CERT or OSMOSMPC_TLS_ENABLED+OSMOSMPC_CERT_DIR)
+        #[arg(long)]
+        tls_cert: Option<String>,
+        /// TLS private key path (also via OSMOSMPC_TLS_KEY)
+        #[arg(long)]
+        tls_key: Option<String>,
+        /// TLS CA certificate path for client verification (also via OSMOSMPC_TLS_CA)
+        #[arg(long)]
+        tls_ca: Option<String>,
     },
     /// Run a benchmark
     Bench {
@@ -158,27 +171,31 @@ async fn main() -> anyhow::Result<()> {
             addr,
             port,
             grpc_port,
+            tls_cert,
+            tls_key,
+            tls_ca,
         } => {
-            commands::verify(&addr, port, grpc_port).await?;
+            commands::verify(&addr, port, grpc_port, tls_cert, tls_key, tls_ca).await?;
         }
         Commands::Bench { size, repeats } => {
             commands::bench(size, repeats).await?;
         }
         Commands::Config => {
-            let config = config::Config::from_env();
+            let config = config::Config::from_env_with_file(cli.config.as_deref());
             println!(
-                "Listen: {}:{}
-Parties: {}
-Party ID: {}
-TLS: {}
-Security bits: {}
-",
+                "Listen: {}:{}\nParties: {}\nParty ID: {}\nTLS: {}\nSecurity bits: {}\nMax rounds: {}\nMalicious: {}\nAPI: {} @ {}:{}\nConfig file: {}\n",
                 config.network.listen_addr,
                 config.network.listen_port,
                 config.network.num_parties,
                 config.network.party_id,
                 config.network.tls_enabled,
-                config.protocol.security_bits
+                config.protocol.security_bits,
+                config.protocol.max_rounds,
+                config.protocol.malicious,
+                if config.api.enabled { "enabled" } else { "disabled" },
+                config.api.listen_addr,
+                config.api.listen_port,
+                cli.config.as_deref().unwrap_or("(auto)")
             );
         }
     }

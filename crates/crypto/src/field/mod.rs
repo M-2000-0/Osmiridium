@@ -57,9 +57,10 @@ impl Scalar {
                 "cannot invert zero".to_string(),
             ));
         }
-        Ok(Self {
-            inner: self.inner.inverse().unwrap(),
-        })
+        let inv = self.inner.inverse().ok_or_else(|| {
+            crate::CryptoError::InvalidFieldElement("inverse failed unexpectedly".to_string())
+        })?;
+        Ok(Self { inner: inv })
     }
 
     pub fn is_zero(&self) -> bool {

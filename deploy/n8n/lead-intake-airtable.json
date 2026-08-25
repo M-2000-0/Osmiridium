@@ -1,0 +1,150 @@
+{
+  "name": "Lead Intake + Airtable CRM",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "n1-lead-webhook",
+      "name": "Lead Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "osmiridium-lead"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": "appYourAirtableBaseId",
+        "table": "Leads",
+        "fields": {
+          "Name": "={{ $json.name || 'Anonymous' }}",
+          "Email": "={{ $json.email }}",
+          "Company": "={{ $json.company || '' }}",
+          "Need": "={{ $json.need || '' }}",
+          "Source": "Website Form",
+          "Status": "Cold"
+        },
+        "options": {}
+      },
+      "id": "n2-airtable-create",
+      "name": "Create Lead in Airtable",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "is-gov-or-keyword",
+              "leftValue": "={{ $json.email || '' }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "matches", "value": ".gov|SMPC|multi.party.secure.computation|osmiridium" }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "n3-qualify",
+      "name": "Qualify Lead?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": "appYourAirtableBaseId",
+        "table": "Leads",
+        "records": "={{ $json.id }}",
+        "fields": {
+          "Status": "Warm"
+        },
+        "options": {}
+      },
+      "id": "n4-airtable-update-warm",
+      "name": "Set Status = Warm",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, -120]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": "appYourAirtableBaseId",
+        "table": "Proposals",
+        "fields": {
+          "Lead": "={{ $json.id }}",
+          "Status": "Pending",
+          "Proposal_Value": "4500",
+          "Deliverable": "6‑hour SMPC feasibility study",
+          "Sent_On": "={{ $now }}",
+          "Signed": "No"
+        },
+        "options": {}
+      },
+      "id": "n5-airtable-create-proposal",
+      "name": "Create Proposal Record",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [660, 120]
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@osmiridium.tech",
+        "toEmail": "={{ $json.email }}",
+        "subject": "Your SMPC Feasibility Study Proposal",
+        "emailFormat": "html",
+        "html": "<p>Hi {{ $json.name || 'there' }},</p><p>We’ve reviewed your interest in privacy‑preserving computation. Attached is a <strong>6‑hour feasibility study</strong> proposal for <strong>$4,500</strong>.</p><p>Deliverable: <br>• Requirements gathering (2 hrs)<br>• Platform setup & key‑share distribution (2 hrs)<br>• Small‑scale SPDZ demo (2 hrs)</p><p>Please reply <strong>‘Accept’</strong> to begin, or let us know what you’d like to adjust.</p><p>Best,<br>The Osmiridium Team</p>",
+        "options": {}
+      },
+      "id": "n6-email-proposal",
+      "name": "Send Proposal Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "credentials": {
+        "smtp": { "id": "SMTP_CREDENTIAL_ID", "name": "SMTP account" }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@osmiridium.tech",
+        "toEmail": "you@osmiridium.tech",
+        "subject": "New Warm Lead: {{ $json.name }} ({{ $json.company }})",
+        "emailFormat": "text",
+        "text": "New warm lead received.\nName: {{ $json.name }}\nEmail: {{ $json.email }}\nCompany: {{ $json.company }}\nNeed: {{ $json.need }}\n\nAction: review in Airtable and send proposal if appropriate.",
+        "options": {}
+      },
+      "id": "n7-notify-internal",
+      "name": "Notify Internal",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [880, -240],
+      "credentials": {
+        "smtp": { "id": "SMTP_CREDENTIAL_ID", "name": "SMTP account" }
+      }
+    }
+  ],
+  "connections": {
+    "Lead Webhook": { "main": [[{ "node": "Create Lead in Airtable", "type": "main", "index": 0 }]] },
+    "Create Lead in Airtable": { "main": [[{ "node": "Qualify Lead?", "type": "main", "index": 0 }]] },
+    "Qualify Lead?": {
+      "main": [
+        [{ "node": "Set Status = Warm", "type": "main", "index": 0 }],
+        [{ "node": "Notify Internal", "type": "main", "index": 0 }]
+      ]
+    },
+    "Set Status = Warm": { "main": [[{ "node": "Create Proposal Record", "type": "main", "index": 0 }, { "node": "Send Proposal Email", "type": "main", "index": 0 }]] },
+    "Notify Internal": { "main": [[{ "node": "Create Proposal Record", "type": "main", "index": 0 }, { "node": "Send Proposal Email", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

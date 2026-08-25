@@ -89,6 +89,29 @@ impl SessionManager {
     }
 
     pub fn set_status(&mut self, status: SessionStatus) -> CoordinatorResult<()> {
+        // Validate state transitions per the session state machine:
+        //   Created -> Configured -> Running -> Completed
+        //                                           -> Failed
+        //   Created -> Cancelled
+        //   Configured -> Cancelled
+        // Terminal states: Completed, Failed, Cancelled
+        match (self.status, status) {
+            (_, SessionStatus::Running) if self.status == SessionStatus::Configured => {}
+            (_, SessionStatus::Completed) if self.status == SessionStatus::Running => {}
+            (_, SessionStatus::Failed) if self.status == SessionStatus::Running => {}
+            (_, SessionStatus::Cancelled)
+                if self.status == SessionStatus::Created
+                    || self.status == SessionStatus::Configured => {}
+            (_, SessionStatus::Configured) if self.status == SessionStatus::Created => {}
+            // Allow re-setting to the same state (idempotent)
+            (a, b) if a == b => {}
+            (from, to) => {
+                return Err(CoordinatorError::Protocol(format!(
+                    "invalid state transition: {:?} -> {:?}",
+                    from, to
+                )));
+            }
+        }
         self.status = status;
         if status == SessionStatus::Running {
             self.started_at = Some(Utc::now());
@@ -229,6 +252,21 @@ impl SessionManager {
             result: self.result.clone(),
             policy: self.policy.clone(),
         }
+    }
+
+    /// Rebuild a manager from a persisted API DTO (session restore).
+    ///
+    /// The per-session audit log is not part of the persisted DTO and starts
+    /// empty; the coordinator-level log is also rebuilt from scratch.
+    pub fn from_computation_session(cs: crate::ComputationSession) -> Self {
+        let mut mgr = SessionManager::new(cs.id, cs.name, cs.circuit, cs.policy);
+        mgr.status = cs.status;
+        mgr.participants = cs.participants;
+        mgr.created_at = cs.created_at;
+        mgr.started_at = cs.started_at;
+        mgr.completed_at = cs.completed_at;
+        mgr.result = cs.result;
+        mgr
     }
 
     /// Get execution results

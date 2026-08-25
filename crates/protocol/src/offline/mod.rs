@@ -273,6 +273,41 @@ pub fn sacrifice_check(triples: &[BeaverTriple], _alpha: Scalar) -> ProtocolResu
 }
 
 #[cfg(test)]
+mod proptest_offline {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_triple_mac_valid(alpha in 1u64..1000, counter in 0u64..10000) {
+            let alpha_s = Scalar::from_u64(alpha);
+            let share = alpha_s * Scalar::from_u64(3).invert().unwrap(); // 1/3 so 3*share == alpha
+            let config = PreprocessingConfig { num_parties: 3, num_triples: 1, ..Default::default() };
+            let offline = OfflinePhase::new(config, 0);
+            let triples = offline.generate_triples(alpha_s, share, counter, 1).unwrap();
+            // Single-party bundle can't verify via sum check; verify per-share MAC instead
+            let t = &triples[0];
+            prop_assert_eq!(t.a_shares[0].mac.mac, alpha_s * t.a_shares[0].share);
+            prop_assert_eq!(t.b_shares[0].mac.mac, alpha_s * t.b_shares[0].share);
+            prop_assert_eq!(t.c_shares[0].mac.mac, alpha_s * t.c_shares[0].share);
+        }
+
+        #[test]
+        fn prop_triple_product(alpha in 1u64..1000, counter in 0u64..10000) {
+            let alpha_s = Scalar::from_u64(alpha);
+            let share = Scalar::from_u64(alpha % 100 + 1);
+            let config = PreprocessingConfig { num_parties: 3, num_triples: 1, ..Default::default() };
+            let offline = OfflinePhase::new(config, 0);
+            let t = offline.generate_single_triple(alpha_s, share, counter).unwrap();
+            // c = a*b / n telescoping: n*c == (sum a)(sum b) but per-party we check MAC
+            prop_assert_eq!(t.a_shares[0].mac.mac, alpha_s * t.a_shares[0].share);
+            prop_assert_eq!(t.b_shares[0].mac.mac, alpha_s * t.b_shares[0].share);
+            prop_assert_eq!(t.c_shares[0].mac.mac, alpha_s * t.c_shares[0].share);
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

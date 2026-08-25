@@ -1,0 +1,22 @@
+# Line endings
+* text=auto eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# Rust
+*.rs text diff=rust
+
+# Lock file is text but should not be normalized aggressively
+Cargo.lock text
+
+# Ensure shell scripts have LF
+*.sh text eol=lf
+
+# Windows batch files keep CRLF if already
+*.bat text eol=crlf

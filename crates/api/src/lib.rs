@@ -1,3 +1,14 @@
+//! REST + gRPC coordinator API.
+//!
+//! Axum router with tracing, 1 MiB body limit, per-IP rate limiting, and
+//! `x-api-key`/`Bearer` auth; tonic gRPC service sharing the same
+//! `Coordinator`. See `docs/api/openapi.yaml`.
+//!
+//! ```rust,no_run
+//! use osmiridium_api::create_router;
+//! let app = create_router();
+//! ```
+
 use axum::{
     extract::{Json, Path, State},
     http::{HeaderMap, StatusCode},
@@ -17,6 +28,16 @@ pub mod grpc;
 pub mod metrics;
 
 use metrics::Metrics;
+
+/// Standard JSON error response body.
+#[derive(Serialize)]
+struct ErrorResponse {
+    error: String,
+    code: u16,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<String>,
+}
 
 #[derive(Clone, Serialize)]
 struct SessionInfo {
@@ -91,13 +112,19 @@ async fn auth_middleware(
     }
 }
 
-/// Rate limiting configuration
+#[derive(Clone, Debug)]
+struct RateLimitEntry {
+    count: u32,
+    window_start: std::time::Instant,
+}
+
+/// Rate limiting configuration — per-IP sliding window (1 minute).
 #[derive(Clone, Debug)]
 struct RateLimitConfig {
     /// Max requests per minute per IP
     requests_per_minute: u32,
-    /// Per-IP request tracker
-    tracker: Arc<tokio::sync::Mutex<std::collections::HashMap<String, u32>>>,
+    /// Per-IP tracker: count + window start. Reset after 60s.
+    tracker: Arc<tokio::sync::Mutex<std::collections::HashMap<String, RateLimitEntry>>>,
 }
 
 impl Default for RateLimitConfig {
@@ -112,19 +139,17 @@ impl Default for RateLimitConfig {
     }
 }
 
-/// Rate limiting middleware (simple in-memory, per-IP)
+/// Rate limiting middleware — fixed window per IP, resets every 60s (#4).
 async fn rate_limit_middleware(
     State(config): State<Arc<RateLimitConfig>>,
     headers: HeaderMap,
     request: axum::http::Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // Skip rate limiting for health check
     if request.uri().path() == "/health" || request.uri().path() == "/metrics" {
         return Ok(next.run(request).await);
     }
 
-    // Extract client IP (simplified - in production use proper extractor)
     let client_ip = headers
         .get("x-forwarded-for")
         .and_then(|v| v.to_str().ok())
@@ -133,19 +158,26 @@ async fn rate_limit_middleware(
         .unwrap_or("unknown")
         .to_string();
 
-    // Check rate limit
-    let mut tracker = config.tracker.lock().await;
-    let count = tracker.entry(client_ip.clone()).or_insert(0);
-    *count += 1;
-
-    if *count > config.requests_per_minute {
-        // Reset count after window expires (simple approach)
-        // In production, use a proper time-based window
-        tracing::warn!(client_ip = %client_ip, "Rate limit exceeded");
-        Metrics::global()
-            .rate_limited_total
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        return Err(StatusCode::TOO_MANY_REQUESTS);
+    {
+        let mut tracker = config.tracker.lock().await;
+        let now = std::time::Instant::now();
+        let entry = tracker.entry(client_ip.clone()).or_insert(RateLimitEntry {
+            count: 0,
+            window_start: now,
+        });
+        // Reset window after 60s
+        if now.duration_since(entry.window_start).as_secs() >= 60 {
+            entry.count = 0;
+            entry.window_start = now;
+        }
+        entry.count += 1;
+        if entry.count > config.requests_per_minute {
+            tracing::warn!(client_ip = %client_ip, "Rate limit exceeded");
+            Metrics::global()
+                .rate_limited_total
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            return Err(StatusCode::TOO_MANY_REQUESTS);
+        }
     }
 
     Ok(next.run(request).await)
@@ -172,9 +204,21 @@ async fn metrics_middleware(
     response
 }
 
+/// Build the coordinator used by the shipped servers, enabling durable
+/// session storage when `OSMOSMPC_DATA_DIR` is set.
+fn build_coordinator() -> SharedCoordinator {
+    let coordinator = match std::env::var("OSMOSMPC_DATA_DIR") {
+        Ok(dir) => {
+            tracing::info!(dir = %dir, "session persistence enabled");
+            Coordinator::new().with_persistence(dir)
+        }
+        Err(_) => Coordinator::new(),
+    };
+    Arc::new(Mutex::new(coordinator))
+}
+
 pub fn create_router() -> Router {
-    let coordinator = Arc::new(Mutex::new(Coordinator::new()));
-    create_router_with(coordinator)
+    create_router_with(build_coordinator())
 }
 
 /// Build the REST router on top of a caller-provided coordinator so it can be
@@ -190,11 +234,12 @@ pub fn create_router_with(coordinator: SharedCoordinator) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/metrics", get(metrics))
-        .route("/sessions", post(create_session))
+        .route("/sessions", get(list_sessions).post(create_session))
         .route("/sessions/:id", get(get_session))
         .route("/sessions/:id/participants", post(add_participant))
         .route("/sessions/:id/execute", post(execute_session))
         .route("/sessions/:id/results", get(get_results))
+        .route("/sessions/:id/cancel", post(cancel_session))
         .layer(auth_layer)
         .layer(rate_limit_layer)
         .layer(middleware::from_fn(metrics_middleware))
@@ -203,8 +248,64 @@ pub fn create_router_with(coordinator: SharedCoordinator) -> Router {
         .with_state(coordinator)
 }
 
-async fn health() -> &'static str {
-    "ok"
+async fn health() -> axum::response::Response {
+    let body = serde_json::json!({
+        "status": "ok",
+        "version": env!("CARGO_PKG_VERSION"),
+    });
+    axum::response::Response::builder()
+        .header("content-type", "application/json")
+        .body(axum::body::Body::from(body.to_string()))
+        .expect("static health body")
+}
+
+/// List all sessions with optional state filter.
+async fn list_sessions(
+    State(coordinator): State<SharedCoordinator>,
+) -> Result<(StatusCode, Json<Vec<SessionInfo>>), StatusCode> {
+    let coord = coordinator.lock().await;
+    let sessions = coord.list_sessions();
+    let infos: Vec<SessionInfo> = sessions
+        .into_iter()
+        .map(|s| SessionInfo {
+            id: s.id.to_string(),
+            name: s.name,
+            status: format!("{:?}", s.status),
+            num_participants: s.participants.len(),
+        })
+        .collect();
+    Ok((StatusCode::OK, Json(infos)))
+}
+
+/// Cancel a session.
+async fn cancel_session(
+    State(coordinator): State<SharedCoordinator>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<ErrorResponse>)> {
+    let session_id = uuid::Uuid::parse_str(&id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "invalid_request".to_string(),
+                code: 400,
+                message: format!("invalid session id: {}", id),
+                details: None,
+            }),
+        )
+    })?;
+    let mut coord = coordinator.lock().await;
+    coord.cancel_session(session_id).map_err(|e| {
+        (
+            StatusCode::CONFLICT,
+            Json(ErrorResponse {
+                error: "conflict".to_string(),
+                code: 409,
+                message: e.to_string(),
+                details: None,
+            }),
+        )
+    })?;
+    Ok(StatusCode::OK)
 }
 
 /// Expose metrics in Prometheus text format
@@ -216,26 +317,78 @@ async fn metrics() -> axum::response::Response {
         .expect("static metrics body")
 }
 
+/// Request ID header for correlation.
+const REQUEST_ID_HEADER: &str = "x-request-id";
+
 async fn create_session(
     State(coordinator): State<SharedCoordinator>,
+    headers: HeaderMap,
     Json(req): Json<CreateSessionRequest>,
-) -> Result<(StatusCode, Json<SessionInfo>), StatusCode> {
+) -> Result<(StatusCode, Json<SessionInfo>), (StatusCode, Json<ErrorResponse>)> {
     let mut coord = coordinator.lock().await;
+
+    // Validate inputs
+    if req.name.is_empty() || req.name.len() > 128 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "invalid_request".to_string(),
+                code: 400,
+                message: "name must be between 1 and 128 characters".to_string(),
+                details: None,
+            }),
+        ));
+    }
+    if req.num_parties < 2 || req.num_parties > 64 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "invalid_request".to_string(),
+                code: 400,
+                message: "num_parties must be between 2 and 64".to_string(),
+                details: None,
+            }),
+        ));
+    }
 
     let circuit = ArithmeticCircuit::new();
     let policy = osmiridium_coordinator::SessionPolicy::new(req.num_parties, "api".to_string());
 
     let session_id = coord
         .create_session(req.name.clone(), circuit, policy)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: "internal_error".to_string(),
+                    code: 500,
+                    message: "failed to create session".to_string(),
+                    details: None,
+                }),
+            )
+        })?;
 
-    let status = coord
-        .get_session_status(session_id)
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let status = coord.get_session_status(session_id).map_err(|_| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "not_found".to_string(),
+                code: 404,
+                message: "session not found".to_string(),
+                details: None,
+            }),
+        )
+    })?;
 
     Metrics::global()
         .active_sessions
         .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+    let request_id = headers
+        .get(REQUEST_ID_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("-");
+    tracing::info!(session_id = %session_id, request_id = %request_id, "session created");
 
     Ok((
         StatusCode::CREATED,
@@ -251,18 +404,43 @@ async fn create_session(
 async fn get_session(
     State(coordinator): State<SharedCoordinator>,
     Path(id): Path<String>,
-) -> Result<(StatusCode, Json<SessionInfo>), StatusCode> {
+) -> Result<(StatusCode, Json<SessionInfo>), (StatusCode, Json<ErrorResponse>)> {
+    let session_id = uuid::Uuid::parse_str(&id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "invalid_request".to_string(),
+                code: 400,
+                message: format!("invalid session id: {}", id),
+                details: None,
+            }),
+        )
+    })?;
+
     let coord = coordinator.lock().await;
-    let session_id = uuid::Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let status = coord.get_session_status(session_id).map_err(|_| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "not_found".to_string(),
+                code: 404,
+                message: "session not found".to_string(),
+                details: None,
+            }),
+        )
+    })?;
 
-    let status = coord
-        .get_session_status(session_id)
-        .map_err(|_| StatusCode::NOT_FOUND)?;
-
-    // Get real session data
-    let session = coord
-        .get_session(session_id)
-        .map_err(|_| StatusCode::NOT_FOUND)?;
+    let session = coord.get_session(session_id).map_err(|_| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse {
+                error: "not_found".to_string(),
+                code: 404,
+                message: "session not found".to_string(),
+                details: None,
+            }),
+        )
+    })?;
 
     Ok((
         StatusCode::OK,
@@ -275,6 +453,38 @@ async fn get_session(
     ))
 }
 
+/// Validate an endpoint string (host:port or IP:port format).
+fn validate_endpoint(endpoint: &str) -> Result<(), StatusCode> {
+    if endpoint.is_empty() || endpoint.len() > 256 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    // Accept both socket addresses (127.0.0.1:9000) and hostnames (localhost:9000).
+    let has_port = endpoint
+        .rsplit(':')
+        .next()
+        .map(|p| p.parse::<u16>().is_ok())
+        .unwrap_or(false);
+    if !has_port {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    Ok(())
+}
+
+/// Validate party_id is within the valid range for the session.
+fn validate_party_id(
+    party_id: usize,
+    session: &osmiridium_coordinator::ComputationSession,
+) -> Result<(), StatusCode> {
+    if party_id >= session.policy.access.max_participants {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    // Check for duplicate party_id
+    if session.participants.iter().any(|p| p.party_id == party_id) {
+        return Err(StatusCode::CONFLICT);
+    }
+    Ok(())
+}
+
 async fn add_participant(
     State(coordinator): State<SharedCoordinator>,
     Path(id): Path<String>,
@@ -283,6 +493,12 @@ async fn add_participant(
     let mut coord = coordinator.lock().await;
     let session_id = uuid::Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 
+    // Validate inputs
+    if req.name.is_empty() || req.name.len() > 128 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    validate_endpoint(&req.endpoint)?;
+
     let role = match req.role.as_str() {
         "DataProvider" => osmiridium_coordinator::ParticipantRole::DataProvider,
         "ComputationRunner" => osmiridium_coordinator::ParticipantRole::ComputationRunner,
@@ -290,6 +506,14 @@ async fn add_participant(
         "Administrator" => osmiridium_coordinator::ParticipantRole::Administrator,
         _ => return Err(StatusCode::BAD_REQUEST),
     };
+
+    // Validate party_id before inserting
+    {
+        let session = coord
+            .get_session(session_id)
+            .map_err(|_| StatusCode::NOT_FOUND)?;
+        validate_party_id(req.party_id, &session)?;
+    }
 
     use chrono::Utc;
     let participant = osmiridium_coordinator::Participant {
@@ -305,6 +529,7 @@ async fn add_participant(
         .map_err(|e| match e {
             osmiridium_coordinator::CoordinatorError::SessionNotFound => StatusCode::NOT_FOUND,
             osmiridium_coordinator::CoordinatorError::AccessDenied => StatusCode::FORBIDDEN,
+            osmiridium_coordinator::CoordinatorError::AlreadyStarted => StatusCode::CONFLICT,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         })?;
 
@@ -314,14 +539,32 @@ async fn add_participant(
 async fn execute_session(
     State(coordinator): State<SharedCoordinator>,
     Path(id): Path<String>,
-) -> Result<(StatusCode, Json<ExecuteResponse>), StatusCode> {
-    let mut coord = coordinator.lock().await;
-    let session_id = uuid::Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+) -> Result<(StatusCode, Json<ExecuteResponse>), (StatusCode, Json<ErrorResponse>)> {
+    let session_id = uuid::Uuid::parse_str(&id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "invalid_request".to_string(),
+                code: 400,
+                message: format!("invalid session id: {}", id),
+                details: None,
+            }),
+        )
+    })?;
 
-    let result = coord
-        .execute_session(session_id)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut coord = coordinator.lock().await;
+
+    let result = coord.execute_session(session_id).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ErrorResponse {
+                error: "execution_error".to_string(),
+                code: 500,
+                message: "session execution failed".to_string(),
+                details: Some(e.to_string()),
+            }),
+        )
+    })?;
 
     Metrics::global()
         .executed_sessions_total
@@ -346,14 +589,33 @@ async fn execute_session(
 async fn get_results(
     State(coordinator): State<SharedCoordinator>,
     Path(id): Path<String>,
-) -> Result<(StatusCode, Json<ExecuteResponse>), StatusCode> {
-    let coord = coordinator.lock().await;
-    let session_id = uuid::Uuid::parse_str(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
+) -> Result<(StatusCode, Json<ExecuteResponse>), (StatusCode, Json<ErrorResponse>)> {
+    let session_id = uuid::Uuid::parse_str(&id).map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse {
+                error: "invalid_request".to_string(),
+                code: 400,
+                message: format!("invalid session id: {}", id),
+                details: None,
+            }),
+        )
+    })?;
 
-    // Try to get real results from session
+    let coord = coordinator.lock().await;
     let results = coord
         .get_session_results(session_id)
-        .map_err(|_| StatusCode::NOT_FOUND)?
+        .map_err(|_| {
+            (
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    error: "not_found".to_string(),
+                    code: 404,
+                    message: "session not found".to_string(),
+                    details: None,
+                }),
+            )
+        })?
         .unwrap_or_default();
 
     Ok((
@@ -401,7 +663,7 @@ pub async fn run_server_with_grpc(rest_addr: &str, grpc_addr: &str) -> std::io::
         )
     })?;
 
-    let coordinator: SharedCoordinator = Arc::new(Mutex::new(Coordinator::new()));
+    let coordinator: SharedCoordinator = build_coordinator();
     let app = create_router_with(coordinator.clone());
 
     let grpc_task = tokio::spawn(async move {

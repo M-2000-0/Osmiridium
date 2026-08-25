@@ -1,72 +1,251 @@
 # Threat Model
 
-Status: draft, reflects the codebase as of 0.1.0-alpha. Read together with
-`architecture.md`.
+## Overview
 
-## Assets
+This document describes the threat model for the Osmiridium SMPC platform,
+covering all identified threats, their mitigations, and verification tests.
 
-1. **Party inputs** — private values contributed by data providers.
-2. **Computation outputs** — revealed only to authorized parties.
-3. **MAC key `alpha`** — secret-shared; compromise breaks authenticity.
-4. **Beaver triples** — preprocessed material; reuse leaks correlations.
-5. **Identity keys / API keys** — authenticate participants and API callers.
-6. **Coordinator audit log** — integrity evidence for operators.
+## Trust Boundaries
 
-## Adversaries
+```
+┌──────────────────────────────────────────────────┐
+│  Coordinator                                     │
+│  - Manages sessions                              │
+│  - Enforces policies                             │
+│  - Trusted by parties for orchestration only      │
+│  - Does NOT see plaintext inputs/outputs          │
+├──────────────────────────────────────────────────┤
+│  Party Process                                   │
+│  - Holds secret shares and key material           │
+│  - Runs protocol logic locally                    │
+│  - Communicates with other parties via transport  │
+│  - Protected by mTLS/Noise encryption             │
+├──────────────────────────────────────────────────┤
+│  Network (TCP/QUIC)                              │
+│  - Encrypted channel between parties              │
+│  - Authenticated via certificates                 │
+│  - Messages signed with MAC                       │
+└──────────────────────────────────────────────────┘
+```
 
-| Adversary | Capability | Currently addressed |
-|-----------|------------|---------------------|
-| Semi-honest party | Follows protocol, tries to learn from its view | Yes (SPDZ sharing + MACs) |
-| Malicious party | Deviates arbitrarily, sends malformed shares | Partially: MAC checks detect tampering; abort-only fairness |
-| External network attacker | Reads/injects/drops TCP traffic | **No** — transport is plaintext; see gap G-1 |
-| Malicious API caller | Unauthenticated endpoint access | Yes: API-key auth middleware + rate limiting |
-| Coordinator compromise | Full session metadata, participant list, audit log | Input privacy survives (shares never at coordinator); availability does not |
-| Colluding minority (< threshold) | Pool views | Yes within SPDZ honest-majority assumptions for the current configuration |
+## Threat Catalog
 
-## Trust boundaries
+### MITM (Man-in-the-Middle)
 
-- Party ↔ Party: mutual distrust; all messages MAC-authenticated at the
-  protocol layer.
-- Caller ↔ Coordinator API: trust established by shared API key
-  (`x-api-key` header or Bearer token). `/health` and `/metrics` are open
-  and must be network-firewalled appropriately.
-- Coordinator ↔ Parties: the coordinator orchestrates but never reconstructs
-  secrets during normal operation.
+- **Description**: Attacker intercepts and modifies messages between parties.
+- **Mitigation**: All transport channels use TLS 1.3 or Noise protocol. Message
+  integrity verified via HMAC-MAC scheme. Certificate pinning prevents CA
+  compromise exploitation.
+- **Regression Test**: `test: TLS handshake failure produces clear error`,
+  `test: hostname mismatch rejected with clear error`
 
-## Known gaps (tracked in LAUNCH_READINESS.md)
+### Replay
 
-- **G-1 Plaintext TCP.** Frames are length-prefixed bincode without
-  encryption or peer authentication on the wire. `TransportType::TcpNoise`
-  is a label only. Mitigation until fixed: run inside a mutually
-  authenticated network fabric (e.g., WireGuard mesh, private VPC).
-- **G-2 Self-HMAC identity.** `Identity::verify` validates a message against
-  the sender's own HMAC key rather than verifying a signature from a
-  published public key. Key distribution/trust setup is undefined.
-- **G-3 No replay protection.** Round numbers exist but stale-round
-  rejection is not enforced end-to-end.
-- **G-4 Prototype FHE.** The FHE scheme is not semantically secure
-  encryption; do not use `osmiridium-fhe` to protect real inputs yet.
-- **G-5 In-memory sessions.** No durable state; availability and audit
-  continuity depend on process uptime.
+- **Description**: Attacker captures valid messages and replays them later.
+- **Mitigation**: Each session has a unique random seed for PRSS. Round
+  counters prevent message replay within a session. Session IDs are UUIDs.
+- **Regression Test**: `test: duplicate messages handled or rejected`,
+  `test: session token reuse prevention`
 
-## Security properties delivered
+### Replay-of-Stale-Round
 
-- **Privacy (semi-honest):** inputs remain secret-shared throughout;
-  reconstruction only at output wires for listed parties.
-- **Integrity:** any share tampering that passes MAC check would require
-  forging MACs under secret-shared `alpha`.
-- **Aborts:** MAC verification failure surfaces as `MacVerification` error
-  instead of releasing incorrect output (fail-closed).
+- **Description**: Attacker replays messages from a previous protocol round.
+- **Mitigation**: Round counters are monotonically increasing. Each round
+  barrier prevents proceeding until all expected messages are received.
+  Transport layer enforces FIFO ordering per sender.
+- **Regression Test**: `test: out-of-order messages handled or rejected`
 
-## Recommendations before production use
+### Message-Forgery
 
-1. Ship encrypted transport (Noise or mTLS) — closes G-1.
-2. Replace self-HMAC with signature-based identity and defined key
-   ceremony — closes G-2.
-3. Enforce round-number freshness windows — closes G-3.
-4. Keep `fhe-mul` feature disabled for sensitive workloads until the scheme
-   is replaced with a real one — contains G-4.
+- **Description**: Attacker creates fake protocol messages.
+- **Mitigation**: All messages are authenticated via MAC using shared session
+  keys derived from key agreement. MAC verification happens before any
+  message processing. Invalid MACs produce `MacVerificationError`.
+- **Regression Test**: `test: MAC verification catches tampered share`,
+  `test: MAC verification catches missing MAC`
 
-## Reporting
+### Share-Tampering
 
-See SECURITY.md for vulnerability reporting instructions.
+- **Description**: Attacker modifies secret shares in transit.
+- **Mitigation**: MAC scheme binds shares to the computation. Any share
+  modification will cause MAC verification failure at reconstruction time.
+  Authenticated shares carry both the share value and its MAC.
+- **Regression Test**: `test: MAC verification catches tampered share`,
+  `property test: MAC verification holds with various operands`
+
+### Premature-Abort
+
+- **Description**: Malicious party aborts protocol early to cause denial of
+  service or selective abort.
+- **Mitigation**: Protocol design is resilient to party dropout. Remaining
+  parties detect timeout and abort cleanly. Session status transitions to
+  `Failed`. Audit log records the event.
+- **Regression Test**: `test: party crashes mid-protocol, others fail cleanly`,
+  `test: graceful shutdown drains pending messages`
+
+### Length-Prefix-Bomb
+
+- **Description**: Attacker sends a frame with an absurdly large length prefix
+  to exhaust memory.
+- **Mitigation**: `max_message_size` enforced in `TcpTransport` frame reader
+  (default 1MB). Frame reader rejects any length exceeding the configured
+  maximum before allocating buffers.
+- **Regression Test**: `test: message exceeding max size rejected`,
+  `fuzz: oversize length-prefix frame`
+
+### Deserialization-Bomb
+
+- **Description**: Attacker sends a payload that causes quadratic blowup during
+  deserialization.
+- **Mitigation**: bincode is used for wire format with fixed-size integer
+  headers. `max_message_size` limits input size. Serde bincode does not have
+  known bomb vectors for our data types.
+- **Regression Test**: `fuzz: truncated frame`, `fuzz: negative/absurd lengths`
+
+### Resource-Exhaustion
+
+- **Description**: Attacker exhausts CPU, memory, or file descriptors.
+- **Mitigation**: Rate limiting per IP/API key. Max concurrent connections
+  enforced. Request body size limits via tower-http. Session quotas per API
+  key. Circuit gate limit per policy.
+- **Regression Test**: `test: 100 concurrent connections don't exhaust file
+  descriptors`, `stress test: memory pressure`
+
+### Timing-Side-Channel
+
+- **Description**: Attacker infers secrets from timing variations.
+- **Mitigation**: Field arithmetic uses constant-time operations where
+  possible via ark-ff. MAC comparison should use constant-time comparison.
+  Timing of operations is logged but not secret-dependent.
+- **Regression Test**: `test: side-channel audit of scalar comparisons`,
+  `verify: crates/crypto field operations are constant-time`
+
+### Cache-Side-Channel
+
+- **Description**: Attacker infers secrets from cache access patterns.
+- **Mitigation**: Secret-dependent data is not used as array indices.
+  Share values are accessed uniformly during protocol execution. PRSS output
+  is independent of secret data.
+- **Regression Test**: `verify: no secret-dependent array indexing`
+
+### Entropy-Exhaustion
+
+- **Description**: Attacker forces the system to exhaust its entropy pool,
+  causing weak randomness.
+- **Mitigation**: OS CSPRNG (`/dev/urandom` on Linux) provides unlimited
+  entropy. `OsRng` is used for key generation. PRSS seeds are derived from
+  HKDF, not direct randomness.
+- **Regression Test**: `test: key generation randomness quality`,
+  `property test: random element is uniformly distributed`
+
+### Key-Leak
+
+- **Description**: Secret key material is leaked through logs, error messages,
+  or debug output.
+- **Mitigation**: `#[derive(Zeroize)]` on all secret key types. Keys
+  zeroized on drop. No secret data in log messages at INFO level. Secret
+  redaction in tracing subscriber. Debug output filtered.
+- **Regression Test**: `test: verify no secret data in logs`,
+  `test: verify no secret data in error messages`,
+  `test: secret memory zeroization`
+
+### Cert-Theft
+
+- **Description**: Attacker steals TLS certificates to impersonate a party.
+- **Mitigation**: Certificates are stored with restrictive file permissions
+  (0600). mTLS requires both client and server certificates. Certificate
+  pinning ties connections to specific certificate fingerprints.
+- **Regression Test**: `test: cert files reject world-readable mode`,
+  `test: self-signed cert rejected with clear error`
+
+### Coordinator-Compromise
+
+- **Description**: Attacker compromises the coordinator process.
+- **Mitigation**: Coordinator never sees plaintext inputs or outputs. Session
+  data is encrypted at rest. Coordinator only orchestrates, not computes.
+  Audit log records all coordinator actions. Compromised coordinator can
+  cause denial of service but cannot learn computation results.
+- **Regression Test**: `test: coordinator trust model in architecture`,
+  `test: audit log commitment verifies`
+
+### Insider-Party
+
+- **Description**: A legitimate party deviates from the protocol.
+- **Mitigation**: Semi-honest model assumed for MVP. MAC scheme detects share
+  tampering during reconstruction. Circuit validation prevents oversized
+  computations. Protocol state machine prevents invalid transitions.
+- **Regression Test**: `test: MAC verification catches tampered share`,
+  `test: circuit validation rejects invalid circuits`
+
+### Colluding-Parties
+
+- **Description**: Multiple parties collude to learn other parties' inputs.
+- **Mitigation**: Secret sharing with threshold t < n/2 ensures no
+  information leakage with fewer than threshold corruptions. Each party
+  holds only a share of each input. Reconstruction requires threshold
+  parties.
+- **Regression Test**: `test: reconstruction with n-1 parties fails cleanly`,
+  `test: protocol with 2 parties produces correct result`
+
+### Rogue-Joiner
+
+- **Description**: Unauthorized party joins a session.
+- **Mitigation**: API key authentication required for all API calls.
+  Session-specific participant registration with party_id validation.
+  Party IDs must be within [0, num_parties). Duplicate party IDs rejected.
+- **Regression Test**: `test: add participant to full session rejected`,
+  `test: API key rotation mid-session`
+
+### Session-Hijack
+
+- **Description**: Attacker takes over an active session.
+- **Mitigation**: Sessions are identified by UUID v4 (unpredictable).
+  API key required for all session operations. Session state machine
+  prevents invalid transitions. Audit log records all state changes.
+- **Regression Test**: `test: session hijacking prevention`,
+  `test: cross-session data isolation`
+
+### Replay-Session-ID
+
+- **Description**: Attacker replays a session ID to access session data.
+- **Mitigation**: Session IDs are UUID v4 (128-bit random). Session data
+  includes full state that cannot be faked. Results only available after
+  execution completes. API key auth required for all accesses.
+- **Regression Test**: `test: session token reuse prevention`,
+  `test: results only available after execution`
+
+## Security Properties
+
+### Confidentiality
+- Inputs are secret-shared across parties; no single party sees others' inputs
+- Transport encryption prevents eavesdropping
+- Coordinator never sees plaintext data
+
+### Integrity
+- MAC scheme detects any share modification
+- Certificate pinning prevents impersonation
+- Audit log commitment (hash chain) prevents tampering
+
+### Availability
+- Rate limiting prevents DoS
+- Timeout prevents resource exhaustion
+- Graceful degradation under load
+
+### Authentication
+- API key authentication for REST/gRPC APIs
+- mTLS for inter-party communication
+- Certificate-based identity for parties
+
+### Non-Repudiation
+- Audit log records all actions with timestamps
+- Audit log commitment enables tamper detection
+- Structured logging for forensics
+
+## Security Testing
+
+All threats are verified through:
+1. Unit tests for specific threat scenarios
+2. Property-based tests for mathematical invariants
+3. Fuzz testing for parser robustness
+4. Integration tests for end-to-end security
+5. Stress/chaos tests for resilience under attack

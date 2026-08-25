@@ -10,6 +10,7 @@ pub mod identity;
 pub mod in_memory;
 pub mod session;
 pub mod tcp;
+pub mod tls;
 pub mod transport;
 
 pub use cert::{
@@ -22,4 +23,5 @@ pub use identity::{Identity, PeerIdentity};
 pub use in_memory::{InMemoryTransport, MessageRouter};
 pub use session::SessionConfig;
 pub use tcp::TcpTransport;
+pub use tls::TlsConfig;
 pub use transport::TransportType;

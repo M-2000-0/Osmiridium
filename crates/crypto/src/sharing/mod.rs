@@ -232,3 +232,56 @@ pub type ShamirScalar = ShamirShare<Scalar>;
 
 /// Additive share type alias.
 pub type AdditiveScalar = AdditiveShare<Scalar>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn prop_additive_roundtrip(v in 0u64..u64::MAX) {
+            let secret = Scalar::from_u64(v);
+            for n in [2usize, 3, 5, 10] {
+                let shares = AdditiveShare::<Scalar>::split(&secret, n, 0).unwrap();
+                assert_eq!(shares.len(), n);
+                let recon = AdditiveShare::<Scalar>::reconstruct(&shares).unwrap();
+                prop_assert_eq!(recon, secret);
+            }
+        }
+
+        #[test]
+        fn prop_shamir_roundtrip(v in 0u64..u64::MAX, n in 2usize..8, t in 1usize..4) {
+            let n = n.max(t + 1);
+            let t = t.min(n - 1);
+            let secret = Scalar::from_u64(v);
+            let shares = ShamirShare::<Scalar>::split(&secret, n, t).unwrap();
+            let subset = &shares[..t + 1];
+            let recon = ShamirShare::<Scalar>::reconstruct(subset).unwrap();
+            prop_assert_eq!(recon, secret);
+        }
+
+        #[test]
+        fn prop_additive_add_shares(v1 in 0u64..1000, v2 in 0u64..1000) {
+            let s1 = Scalar::from_u64(v1);
+            let s2 = Scalar::from_u64(v2);
+            let n = 3;
+            let shares1 = AdditiveShare::<Scalar>::split(&s1, n, 0).unwrap();
+            let shares2 = AdditiveShare::<Scalar>::split(&s2, n, 0).unwrap();
+            let mut sum_shares = Vec::new();
+            for (a, b) in shares1.iter().zip(shares2.iter()) {
+                sum_shares.push(AdditiveShare::<Scalar>::add_shares(a, b).unwrap());
+            }
+            let recon = AdditiveShare::<Scalar>::reconstruct(&sum_shares).unwrap();
+            prop_assert_eq!(recon, s1 + s2);
+        }
+    }
+
+    #[test]
+    fn test_additive_zero() {
+        let secret = Scalar::zero();
+        let shares = AdditiveShare::<Scalar>::split(&secret, 3, 0).unwrap();
+        let recon = AdditiveShare::<Scalar>::reconstruct(&shares).unwrap();
+        assert_eq!(recon, Scalar::zero());
+    }
+}

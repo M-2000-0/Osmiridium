@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "osmiridium-config.fullname" . }}
+  namespace: {{ .Release.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "osmiridium-config.name" . }}
+    app.kubernetes.io/instance: {{ .Chart.AppVersion }}
+data:
+  {{- $conf := .Values.tls }}
+  OSMOSMPC_LISTEN_ADDR: "{{ .Values.global.listenAddr | default "0.0.0.0" }}"
+  OSMOSMPC_LISTEN_PORT: "{{ .Values.listenPort | default "9000" }}"
+  OSMOSMPC_NUM_PARTIES: "{{ .Values.numParties | default "3" }}"
+  OSMOSMPC_PARTY_ID: "{{ .Values.partyId | default "0" }}"
+  OSMOSMPC_TLS_ENABLED: "{{ .Values.tls.enabled | quote }}"
+  OSMOSMPC_CERT_DIR: "{{ .Values.tls.certDir | default "./data/certs" | quote }}"
+  OSMOSMPC_SECURITY_BITS: "{{ .Values.securityBits | default "128" }}"
+  OSMOSMPC_API_PORT: "{{ .Values.apiPort | default "8080" }}"
+  OSMOSMPC_LOG_FORMAT: "{{ .Values.logFormat | default "text" }}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "osmiridium-coordinator.fullname" . }}
+  namespace: {{ .Release.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "osmiridium-coordinator.name" . }}
+    app.kubernetes.io/instance: {{ .Chart.AppVersion }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  selector:
+    app.kubernetes.io/name: {{ include "osmiridium-coordinator.name" . }}
+  ports:
+    - name: http
+      protocol: TCP
+      port: {{ .Values.service.portHttp | default 8080 }}
+      targetPort: 8080
+    - name: grpc
+      protocol: TCP
+      port: {{ .Values.service.portGrpc | default 50051 }}
+      targetPort: 50051

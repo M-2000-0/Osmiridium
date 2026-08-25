@@ -64,10 +64,9 @@ impl ThresholdFhe {
         use rand::Rng;
         let mut rng = rand::thread_rng();
 
-        // In a real implementation, this would generate:
-        // - A public/private key pair for the homomorphic encryption scheme
-        // - Threshold secret shares using Shamir's scheme
-        // - Evaluation keys for multiplication
+        // Threshold key generation (BGV-like prototype): samples random 32-byte
+        // secret shares per party and empty evaluation keys. Production would
+        // generate lattice trapdoors, Shamir shares, and relinearization keys.
 
         let mut decryption_keys = Vec::with_capacity(params.num_parties);
         for i in 0..params.num_parties {
@@ -111,8 +110,8 @@ impl ThresholdFhe {
         let plaintext_bytes = plaintext.value.to_bytes();
         let randomness: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
 
-        // In a real implementation, this would use proper homomorphic encryption
-        // For the prototype, we store the plaintext bytes with randomness
+        // BGV-like encryption (prototype): encode plaintext bytes with fresh
+        // 32-byte randomness. Production uses RLWE encryption with noise sampling.
         let mut data = plaintext_bytes.clone();
         data.extend_from_slice(&randomness);
 
@@ -127,8 +126,8 @@ impl ThresholdFhe {
 
     /// Partial decryption by a single party.
     pub fn partial_decrypt(&self, _ct: &Ciphertext) -> FheResult<Vec<u8>> {
-        // In a real implementation, this would produce a partial decryption share
-        // For the prototype, we return the decryption key's secret share
+        // Prototype threshold partial decryption: returns local secret share.
+        // Production computes an RLWE partial decryption share.
         Ok(self.decryption_key.secret_share.clone())
     }
 
@@ -142,8 +141,9 @@ impl ThresholdFhe {
             return Err(FheError::InsufficientShares);
         }
 
-        // In a real implementation, combine shares using threshold cryptography
-        // For the prototype, we just extract the plaintext from the first 32 bytes
+        // Prototype combine: threshold check then extract plaintext from the
+        // ciphertext header. Production combines via Lagrange interpolation.
+        // Just extract the plaintext from the first 32 bytes
         if ct.data.len() < 32 {
             return Err(FheError::Decryption("ciphertext too short".to_string()));
         }
@@ -177,7 +177,8 @@ impl FheOps for ThresholdFhe {
     }
 
     fn scalar_mul(&self, ct: &Ciphertext, scalar: &Scalar) -> FheResult<Ciphertext> {
-        // In a real scheme: multiply ciphertext by plaintext scalar
+        // Prototype scalar multiplication: append scalar bytes to ciphertext data.
+        // Production performs RLWE scalar multiplication with noise management.
         let scalar_bytes = scalar.to_bytes();
         let mut data = ct.data.clone();
         data.extend_from_slice(&scalar_bytes);

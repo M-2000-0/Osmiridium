@@ -1,54 +1,41 @@
 # Contributing to Osmiridium
 
-## Development Setup
+## Quick Start
 
-1. Fork the repository and clone locally
-2. Ensure Rust 1.97+ is installed
-3. Run `cargo build --workspace` to verify the build
-4. Run `cargo test --workspace` to verify tests pass
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace
+cargo doc --workspace --no-deps
+```
 
-## Branch & PR Guidelines
+See `AGENTS.md` for Code Quality Standards (type check, tests, fmt, clippy).
 
-- Create a branch from `main` for each feature/bugfix
-- Commit with clear, descriptive messages
-- Submit a Pull Request against `main`
-- Ensure all CI checks pass before requesting review
-- Address review feedback promptly
+## Development
 
-## Code Style
+- Rust 1.97, `resolver = "2"`, `edition = "2021"`
+- Workspace: `crates/{crypto,protocol,network,coordinator,api,cli,fhe,testing}`
+- `cargo run -p osmiridium-cli -- --help`
 
-- Run `cargo fmt` before committing
-- Run `cargo clippy -- -D warnings` and fix all warnings
-- Add doc comments for all public API items
-- Write tests for new functionality
-- Follow existing patterns in the codebase
+## Pull Requests
 
-## Adding New Crates
-
-- Ensure the crate is added to the workspace members in `Cargo.toml`
-- Add appropriate dependencies (avoid unused deps)
-- Update `rust-toolchain.toml` if nightly features are used
-- Add crate-level README and rustdoc examples
-
-## Protocol & Crypto Changes
-
-- Protocol changes require review of the SPDZ/MAC/security model
-- Crypto changes should maintain backward compatibility where possible
-- Update documentation for any behavioral changes
-- Add unit tests for new functionality
+- Branch from `main`, keep PRs focused, add tests for new paths (success + error).
+- Use `thiserror` for errors, avoid `unwrap()` in production, add rustdoc for public items.
+- Update `CHANGELOG.md` per Keep a Changelog, and docs in `docs/` when behavior changes.
+- Ensure `LAUNCH_READINESS.md` items relevant to your change are checked.
 
 ## Testing
 
-- Add unit tests for public API
-- Add integration tests for new features
-- Ensure tests run without network access when possible
-- Property-based tests using proptest are encouraged
-- Fuzz targets should be added for new code paths
+- Unit: `#[cfg(test)]` per crate
+- Integration: `crates/testing/tests/*.rs` (`cargo test -p osmiridium-testing`)
+- Property tests: `proptest` where available
+- Benchmarks: `cargo bench -p osmiridium-testing` (requires `criterion.workspace = true`)
 
-## Release Process
+## Security
 
-- Version following semantic versioning
-- Update CHANGELOG.md for all changes
-- Tag releases with `vX.Y.Z` format
-- Build and verify release binaries
-- Publish Docker images if applicable
+- Never log secret material, use constant-time compares, validate all input.
+- Report vulnerabilities via `SECURITY.md`, not public issues.
+
+## License
+
+By contributing you agree your contributions are licensed under `BUSL-1.1` (same as `LICENSE`), converting to Apache-2.0 on the Change Date.

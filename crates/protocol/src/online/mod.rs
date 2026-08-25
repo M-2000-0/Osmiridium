@@ -267,7 +267,8 @@ impl OnlinePhase {
 
                 Gate::Equal { .. } | Gate::GreaterThan { .. } => {
                     return Err(ProtocolError::Online(
-                        "Comparison gates not implemented in basic online phase".to_string(),
+                        "Comparison gates (Equal/GreaterThan) not supported in SPDZ arithmetic online phase; use FHE path for comparisons"
+                            .to_string(),
                     ));
                 }
             }

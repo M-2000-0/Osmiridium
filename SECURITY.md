@@ -2,46 +2,53 @@
 
 ## Supported Versions
 
-| Version | Supported | Security Updates |
-|---------|-----------|------------------|
-| 0.1.0-alpha | :white_check_mark: | See below |
+| Version | Supported |
+|---------|-----------|
+| 0.1.x-alpha | :white_check_mark: (development) |
+| < 0.1 | :x: |
 
-## Reporting Vulnerabilities
+## Reporting a Vulnerability
 
-Please report security vulnerabilities privately, via email, to security@osmiridium.tech.
+**Do not open a public issue for security vulnerabilities.**
 
-You can expect a response within 5 business days. All security vulnerabilities will be acknowledged and assessed within 48 hours.
+Email: `security@osmiridium.tech` (or open a private security advisory via GitHub: `Security → Report a vulnerability`).
 
-## Security Updates
+Include:
+- Description, impact, and reproduction steps
+- Affected version / commit
+- Proof-of-concept if available
 
-Security fixes will be released as soon as possible, typically within 2 weeks of report validation. Critical vulnerabilities affecting the MPC protocol or transport security will be prioritized.
+We will acknowledge within 48h and aim to provide a fix/mitigation within 14 days. We follow coordinated disclosure — please allow us to publish a fix before public disclosure.
 
-## Preferred Reporting Method
+## Scope
 
-1. Send an email to security@osmiridium.tech with:
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact
-   - Affected versions
+In-scope: `crates/crypto`, `crates/protocol`, `crates/network` (TLS/framing), `crates/coordinator` (policy/authz), `crates/api` (auth/validation), `crates/cli` (key handling).
 
-2. If possible, include:
-   - Minimal reproduction steps
-   - Version information
-   - Environment details
+Out-of-scope pre-launch: FHE prototype `crates/fhe` (gated behind `fhe-prototype`).
 
-## Security Advisory Process
+## Security Model
 
-1. Initial triage and validation (24-48 hours)
-2. CVE assignment if applicable
-3. Development of fix
-4. Testing and verification
-5. Release with security advisory
-6. Documentation of mitigation steps
+- Threat model: `docs/design/threat-model.md`
+- Assumptions: semi-honest parties by default; malicious variant planned. MACs provide integrity, not confidentiality alone — transport must be encrypted (mTLS).
+- Secrets: `SecretKey` zeroizes on drop (`zeroize` crate). Never log secrets; errors redact field elements.
 
-## Temporary Mitigations
+## Hardening Checklist (operators)
 
-Until a fix is released, the following mitigations are recommended:
-- Disable TLS if mTLS is not properly configured
-- Restrict network access to party endpoints
-- Monitor for unusual API activity
-- Limit participant registration to trusted parties
+- Set `OSMOSMPC_API_KEY` (no default in prod), enable `OSMOSMPC_TLS_ENABLED=1`, pin peer cert fingerprints.
+- Put `/metrics` behind internal firewall.
+- Run `cargo audit` / `cargo deny` in CI (see `.github/workflows/ci.yml`).
+- Rotate certs/keys per runbook `docs/runbook.md`.
+
+## Disclosure Process
+
+1. Triage → 2. Fix on private branch → 3. Release + advisory → 4. Credit reporter (if desired).
+
+## See also
+
+- Threat model: [docs/design/threat-model.md](docs/design/threat-model.md)
+- Architecture: [docs/design/architecture.md](docs/design/architecture.md)
+- API spec: [docs/api/openapi.yaml](docs/api/openapi.yaml)
+
+---
+
+Version: 0.1.0-alpha | Last updated: 2026-08-24

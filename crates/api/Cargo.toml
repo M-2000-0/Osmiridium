@@ -1,6 +1,7 @@
 [package]
 name = "osmiridium-api"
 description = "gRPC and REST API for the Osmiridium platform"
+version = { workspace = true }
 edition = "2021"
 
 [dependencies]

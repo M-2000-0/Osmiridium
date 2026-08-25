@@ -10,7 +10,9 @@ pub enum TransportType {
     Quic,
     /// WebSocket over TLS
     WebSocket,
-    /// Direct TCP with noise
+    /// TCP transport label — plaintext by default; TLS 1.3 with certificate-fingerprint
+    /// pinning when a [`crate::tls::TlsConfig`] is attached via [`crate::tcp::TcpTransport::with_tls`].
+    /// The variant alone does not encrypt the wire (see `crates/network/src/tcp.rs:73`).
     TcpNoise,
 }
 

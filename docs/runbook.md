@@ -31,7 +31,9 @@ git pull                        # or merge a release tag
 The GitHub Action `deploy.yml` does this automatically on every push to `main`
 when `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_KEY` are set.
 
-## 4. Backups
+## 4. Backup/Restore
+
+State is in-memory only (see `docs/operations.md`); backups are tarballs of `./data` plus exported results.
 
 ```bash
 ./scripts/backup.sh             # tarball of ./data into backups/
@@ -53,7 +55,7 @@ Stack (started with deploy.sh): Prometheus on :9090, Grafana on :3000.
 - Alerts: when `/health` fails or session error rate rises, Prometheus alerts
   fire and Grafana can notify you via email/Slack/webhook.
 
-## 6. Incident response
+## 6. Incident Response
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
@@ -83,3 +85,11 @@ cd /opt/osmiridium
 cp .env.example .env   # edit values
 ./scripts/deploy.sh
 ```
+
+## See also
+
+- [design/architecture.md](design/architecture.md) · [design/threat-model.md](design/threat-model.md) · [api/openapi.yaml](api/openapi.yaml)
+
+---
+
+Version: 0.1.0-alpha | Last updated: 2026-08-24

@@ -1,0 +1,43 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/M-2000-0/osmiridium
+  tag: "0.1.0-alpha"
+
+tls:
+  enabled: false
+  certDir: "./data/certs"
+
+persistence:
+  enabled: false
+  path: "/data/sessions"
+
+resources: {}
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+monitoring:
+  enabled: false
+  serviceMonitor: true
+
+networkPolicy:
+  enabled: false
+
+hpa:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

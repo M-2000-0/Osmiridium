@@ -26,7 +26,8 @@ A production Osmiridium deployment consists of:
    |  Party 0    | | Party 1  | | Party 2 |
    |  :9000      | | :9001    | | :9002   |
    +-------------+ +----------+ +---------+
-              TLS-encrypted mTLS channels
+     TCP channels — plaintext by default;
+     optional TLS 1.3 with cert pinning (see TLS Configuration)
 ```
 
 ## Prerequisites
@@ -85,20 +86,68 @@ OSMOSMPC_LISTEN_PORT=9001 \
 
 ## TLS Configuration
 
-To enable TLS between parties and the coordinator:
+> **Plaintext is the default.** Without TLS, all inter-party TCP traffic is unencrypted
+> and must only run inside a trusted network (VPC, private LAN, or WireGuard tunnel).
+> This is the honest current wire state; the deployment ran plaintext until the
+> `TlsConfig` pinning path landed.
 
-1. Generate certificates (via the certificate module in `osmiridium-network`).
+When enabled, `TcpTransport` (`crates/network/src/tcp.rs:46`) upgrades to **TLS 1.3
+with certificate-fingerprint pinning** (`crates/network/src/tls.rs:20`). The
+handshake is still fully verified; a copied certificate without the matching private
+key fails. The wire is encrypted only when a `TlsConfig` is attached.
+
+### TransportType::TcpNoise semantics (#35)
+
+`TransportType::TcpNoise` (`crates/network/src/transport.rs:8`) is a **label** for
+the TCP transport: it means *"TLS with pinning when a `TlsConfig` is configured via
+`TcpTransport::with_tls()`, plaintext otherwise"*. It is **not** Noise-protocol
+encryption and it is not automatic mTLS — the enum variant does not by itself
+change the wire. Historically the name implied Noise/mTLS while the wire was
+plaintext; now TLS is optional and explicit.
+
+### How to enable TLS
+
+**Option A — environment (CLI / coordinator):**
+
+1. Generate per-party self-signed certificates and print fingerprints:
+
+   ```bash
+   cargo run -p osmiridium-cli -- keygen --parties 3
+   # prints: Party 0 certificate generated, fingerprint: [ab, cd, ...]
+   # writes data/certs/party-{id}.crt, party-{id}.key, and ca.crt
+   ```
+
+   Fingerprints are `SHA-256(cert DER)` via `cert_fingerprint`
+   (`crates/network/src/cert.rs:166`).
+
 2. Configure environment:
 
-```bash
-export OSMOSMPC_TLS_ENABLED=true
-export OSMOSMPC_CERT_DIR=./data/certs
+   ```bash
+   export OSMOSMPC_TLS_ENABLED=true
+   export OSMOSMPC_CERT_DIR=./data/certs
+   ```
+
+   `Config::from_env` (`crates/cli/src/config.rs:191`) reads
+   `OSMOSMPC_TLS_ENABLED` (`"true"` enables TLS, any other value keeps plaintext;
+   default `false`). The process that builds a `TcpTransport` must then call
+   `with_tls()` with the local cert/key and the set of peer fingerprints to pin.
+
+**Option B — programmatic (Rust):**
+
+```rust
+use osmiridium_network::{TcpTransport, TlsConfig, transport::SessionConfig, Identity};
+
+let pinned: Vec<[u8; 32]> = peer_certs.iter().map(|c| osmiridium_network::cert_fingerprint(c)).collect();
+let tls = TlsConfig::new(local_cert_der, local_key_der, pinned)?;
+let transport = TcpTransport::new(SessionConfig::default(), identity, "0.0.0.0:9000".into())
+    .with_tls(tls); // <- without this call the transport stays plaintext
+assert!(transport.has_tls());
 ```
 
-3. Each party should have:
-   - `data/certs/party-{id}.crt` — party certificate
-   - `data/certs/party-{id}.key` — party private key
-   - `data/certs/ca.crt` — shared CA certificate
+Without `with_tls()` the transport stays plaintext regardless of
+`TransportType::TcpNoise`. With `with_tls()`, outgoing connections verify the peer's
+leaf fingerprint against `pinned_fingerprints` and incoming connections are
+terminated with the local cert/key via `TlsConfig::acceptor()` / `connector()`.
 
 ## Multi-Party Network Setup
 
@@ -125,7 +174,15 @@ curl -X POST http://coordinator:8080/sessions/{id}/participants \
 
 ### Security Considerations
 
-- **TLS**: Always enable TLS in production. Use a proper CA, not self-signed certificates.
+- **TLS**: Always enable TLS in production via `TcpTransport::with_tls()` /
+  `OSMOSMPC_TLS_ENABLED=true` with pinned peer fingerprints. Without it traffic is
+  plaintext and must be confined to a private network (VPC / WireGuard). Current
+  implementation uses self-signed certificates pinned by SHA-256 fingerprint
+  (`cert_fingerprint` in `crates/network/src/cert.rs:166`, `TlsConfig` in
+  `crates/network/src/tls.rs:20`) — not a CA trust chain. CA files written by
+  `keygen` are retained for future mTLS work but are not used for peer
+  authentication today. Client-certificate mTLS is roadmap, planned to layer on
+  the same `TlsConfig`.
 - **Network isolation**: Run parties on separate hosts with restricted network access.
 - **Key management**: Store MAC key shares and TLS private keys in a secure secrets manager.
 - **Audit logs**: The coordinator maintains audit logs; ship them to a SIEM for compliance.
@@ -143,5 +200,32 @@ curl -X POST http://coordinator:8080/sessions/{id}/participants \
 | `Connection refused` | Party port not open / wrong endpoint | Verify ports and endpoints in coordinator |
 | `MacVerificationFailed` | Tampered share or wrong MAC key | Re-run keygen; ensure all parties share the same alpha |
 | `InsufficientShares` | Not enough parties joined | Add participants before executing |
-| TLS handshake failure | Missing/invalid certs | Regenerate certs; verify CA trust chain |
+| TLS handshake failure | Fingerprint mismatch or missing/invalid certs | Regenerate via `cargo run -p osmiridium-cli -- keygen`, ensure `TlsConfig::new(..., pinned_fingerprints)` contains all peer `cert_fingerprint`s, and `OSMOSMPC_TLS_ENABLED=true` is set consistently across parties |
 | `SessionNotFound` | Wrong session ID | Use the UUID returned by `POST /sessions` |
+
+## Kubernetes and Terraform (Unshipped)
+
+`deploy/kubernetes/` and `deploy/terraform/` are **placeholders and not yet shipped**.
+Each contains a `README.md` stub stating "coming soon". Do not expect
+`kubectl apply -k deploy/kubernetes` or `terraform apply deploy/terraform` to work.
+
+- Shipped deployment paths: `docker-compose.yml` (root) and bare-metal via
+  `cargo build --release --workspace` (see Deployment Options above).
+- Kubernetes manifests and Terraform modules are tracked in
+  `LAUNCH_READINESS.md` items 705-782 and will land there when ready. Until then,
+  the `deploy/kubernetes/README.md:1` and `deploy/terraform/README.md:1` stubs
+  are the source of truth that these targets are unshipped.
+- This section exists to close checklist item #15 (doc-only, fixable) and to
+  reconcile the prior claim that Kubernetes/Terraform were ready.
+
+## See also
+
+- Architecture: [docs/design/architecture.md](docs/design/architecture.md)
+- Threat model: [docs/design/threat-model.md](docs/design/threat-model.md)
+- REST API spec: [docs/api/openapi.yaml](docs/api/openapi.yaml) — summary in [docs/api/README.md](docs/api/README.md)
+- Runbook (backup/restore, incident response): [docs/runbook.md](docs/runbook.md)
+- Troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md) / [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+
+---
+
+Version: 0.1.0-alpha | Last updated: 2026-08-24

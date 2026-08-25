@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "osmiridium-coordinator.fullname" . }}
+  namespace: {{ .Release.namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "osmiridium-coordinator.name" . }}
+    app.kubernetes.io/instance: {{ .Chart.AppVersion }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "osmiridium-coordinator.name" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "osmiridium-coordinator.name" . }}
+    spec:
+      containers:
+        - name: coordinator
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          envFrom:
+            - configMapRef:
+                name: {{ include "osmiridium-config.fullname" . }}
+            - secretRef:
+                name: {{ include "osmiridium-tls.fullname" . }}
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: grpc
+              containerPort: 50051
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{- with .Values.tls.enabled }}
+          {{- if not .Values.tls.enabled }}
+          env:
+            - name: OSMOSMPC_TLS_ENABLED
+              value: "false"
+          {{- end }}
+          {{- end }}
+          {{- with .Values.tls.certDir }}
+          env:
+            - name: OSMOSMPC_CERT_DIR
+              value: {{ .Values.tls.certDir | quote }}
+          {{- end }}
+          {{- with .Values.monitoring.serviceMonitor }}
+          serviceMonitor:
+            enabled: true
+            additionalLabels: {{- . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.networkPolicy.enabled }}
+          networkPolicy:
+            enabled: true
+          {{- end }}
+          {{- with .Values.hpa.enabled }}
+          hpa:
+            enabled: true
+            minReplicas: {{ .Values.hpa.minReplicas }}
+            maxReplicas: {{ .Values.hpa.maxReplicas }}
+          {{- end }}
+          {{- with .Values.podDisruptionBudget.enabled }}
+          podDisruptionBudget:
+            enabled: true
+            minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+          {{- end }}

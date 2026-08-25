@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: osmiridium
+  labels:
+    app.kubernetes.io/name: osmiridium
+    app.kubernetes.io/instance: 0.1.0-alpha
+    app.kubernetes.io/part-of: osmiridium
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: osmiridium-monitoring
+  labels:
+    app.kubernetes.io/name: osmiridium-monitoring
+    app.kubernetes.io/instance: 0.1.0-alpha
+---

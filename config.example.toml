@@ -1,0 +1,21 @@
+# Osmiridium example configuration (TOML)
+# Copy to config.toml or osmiridium.toml, or set OSMOSMPC_CONFIG=/path/to/config.toml
+# Env vars (OSMOSMPC_*) override file values. See crates/cli/src/config.rs:66.
+
+[network]
+listen_addr = "0.0.0.0"
+listen_port = 9000
+num_parties = 3
+party_id = 0
+tls_enabled = false
+cert_dir = "./data/certs"
+
+[protocol]
+security_bits = 128
+max_rounds = 100
+malicious = false
+
+[api]
+enabled = true
+listen_addr = "0.0.0.0"
+listen_port = 8080

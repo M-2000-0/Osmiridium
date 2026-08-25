@@ -1,0 +1,8 @@
+apiVersion: v2
+name: osmiridium
+description: Osmiridium Secure Multi-Party Computation platform
+type: application
+version: 0.1.0-app
+appVersion: 0.1.0-alpha
+dependencies: []
+kubeVersion: ">=1.21.0"
