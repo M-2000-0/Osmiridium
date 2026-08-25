@@ -20,3 +20,8 @@ check_err.txt
 .vscode/
 *.swp
 *.swo
+
+# ad-hoc check logs
+check_*.txt
+.freebuff/
+crates_testing_backup.txt
