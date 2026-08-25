@@ -11,7 +11,7 @@ ark-poly = "0.5"
 ark-serialize = { version = "0.5", features = ["derive"] }
 ark-std = { version = "0.5", features = ["std", "parallel"] }
 rand = "0.8"
-rand_chacha = "0.3"
+rand_chacha = "0.9"
 sha2 = "0.10"
 sha3 = "0.10"
 hkdf = "0.12"
