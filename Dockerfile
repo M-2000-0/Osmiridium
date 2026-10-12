@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM rust:1.97 AS builder
+FROM rust:1.99 AS builder
 
 WORKDIR /app
 
